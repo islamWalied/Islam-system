@@ -1,298 +1,474 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LifeOS</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
-<style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  :root{
-    --bg:#0a0c10;
-    --surface:#111520;
-    --border:#1e2433;
-    --gold:#c9a84c;
-    --gold2:#e8c56a;
-    --gold-dim:rgba(201,168,76,0.1);
-    --gold-border:rgba(201,168,76,0.25);
-    --text:#e8ecf4;
-    --text2:#8892a8;
-    --text3:#454f65;
-    --green:#34d399;
-    --red:#f87171;
-  }
-  body{
-    background:var(--bg);
-    color:var(--text);
-    font-family:'Tajawal',sans-serif;
-    min-height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:24px;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>LifeOS — Islam Walied</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080b12;
+      --surface: #0d1117;
+      --surface2: #111823;
+      --surface3: #161d2a;
+      --border: #1c2333;
+      --border2: #232f42;
+      --gold: #c9a84c;
+      --gold2: #e8c56a;
+      --gold3: #f5d98b;
+      --gold-dim: rgba(201,168,76,0.08);
+      --gold-dim2: rgba(201,168,76,0.15);
+      --gold-border: rgba(201,168,76,0.22);
+      --gold-border2: rgba(201,168,76,0.40);
+      --text: #e8ecf4;
+      --text2: #8892a8;
+      --text3: #454f65;
+      --green: #34d399;
+      --green-dim: rgba(52,211,153,0.1);
+      --green-border: rgba(52,211,153,0.25);
+      --red: #f87171;
+      --red-dim: rgba(248,113,113,0.1);
+      --blue: #60a5fa;
+      --blue-dim: rgba(96,165,250,0.1);
+      --blue-border: rgba(96,165,250,0.25);
+      --purple: #a78bfa;
+      --purple-dim: rgba(167,139,250,0.1);
+      --purple-border: rgba(167,139,250,0.25);
+    }
 
-  /* ── noise texture ── */
-  body::before{
-    content:'';
-    position:fixed;
-    inset:0;
-    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events:none;
-    z-index:0;
-  }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{font-size:16px;-webkit-tap-highlight-color:transparent}
+    body{
+      background:var(--bg);
+      color:var(--text);
+      font-family:'Tajawal',sans-serif;
+      min-height:100vh;
+      padding-bottom:60px;
+    }
 
-  /* ── login card ── */
-  .login-wrap{
-    position:relative;
-    z-index:1;
-    width:100%;
-    max-width:420px;
-    text-align:center;
-  }
+    /* noise */
+    body::before{
+      content:'';position:fixed;inset:0;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events:none;z-index:0;
+    }
 
-  .logo-ring{
-    width:80px;height:80px;
-    border-radius:24px;
-    background:var(--gold-dim);
-    border:1px solid var(--gold-border);
-    display:flex;align-items:center;justify-content:center;
-    margin:0 auto 28px;
-    font-size:36px;
-  }
+    /* ── LOADER ── */
+    #loader{position:fixed;top:0;left:0;width:100%;height:3px;z-index:9999;background:rgba(201,168,76,.12);overflow:hidden;opacity:0;transition:opacity .3s;pointer-events:none}
+    #loader.on{opacity:1}
+    #loader .bar{width:40%;height:100%;background:linear-gradient(90deg,transparent,var(--gold2),transparent);animation:lslide 1.2s ease-in-out infinite;border-radius:2px}
+    @keyframes lslide{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
 
-  .brand{
-    font-size:48px;
-    font-weight:800;
-    letter-spacing:-2px;
-    line-height:1;
-    background:linear-gradient(135deg,#fff 30%,var(--gold2));
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    margin-bottom:10px;
-  }
+    /* ── LOGIN ── */
+    #login-screen{
+      position:relative;z-index:1;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:100vh;padding:24px;text-align:center;
+    }
+    .login-logo{
+      width:88px;height:88px;border-radius:26px;
+      background:var(--gold-dim2);border:1px solid var(--gold-border2);
+      display:flex;align-items:center;justify-content:center;
+      font-size:40px;margin:0 auto 24px;
+      box-shadow:0 0 40px rgba(201,168,76,.15);
+    }
+    .login-brand{
+      font-size:52px;font-weight:900;letter-spacing:-2px;line-height:1;
+      background:linear-gradient(135deg,#fff 20%,var(--gold2) 60%,var(--gold));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      margin-bottom:8px;
+    }
+    .login-tagline{font-size:15px;color:var(--text2);line-height:1.7;margin-bottom:48px}
+    .login-card{
+      background:var(--surface);border:1px solid var(--border2);
+      border-radius:22px;padding:36px;width:100%;max-width:400px;
+    }
+    .login-card-title{font-size:19px;font-weight:800;margin-bottom:6px}
+    .login-card-sub{font-size:14px;color:var(--text2);margin-bottom:28px;line-height:1.6}
+    .btn-google{
+      width:100%;display:flex;align-items:center;justify-content:center;gap:12px;
+      padding:15px 20px;background:#fff;color:#1a1a1a;border:none;border-radius:13px;
+      font-size:15px;font-weight:800;font-family:'Tajawal',sans-serif;
+      cursor:pointer;transition:all .2s;position:relative;overflow:hidden;
+    }
+    .btn-google:hover{background:#f2f2f2;transform:translateY(-1px);box-shadow:0 10px 28px rgba(0,0,0,.35)}
+    .btn-google:active{transform:translateY(0)}
+    .btn-google:disabled{opacity:.6;cursor:not-allowed;transform:none}
+    .google-icon{width:20px;height:20px;flex-shrink:0}
+    .login-status{margin-top:16px;padding:12px 16px;border-radius:11px;font-size:13px;font-weight:600;display:none;text-align:right}
+    .login-status.ok{background:var(--green-dim);border:1px solid var(--green-border);color:var(--green);display:block}
+    .login-status.err{background:var(--red-dim);border:1px solid rgba(248,113,113,.25);color:var(--red);display:block}
+    .login-status.load{background:var(--gold-dim2);border:1px solid var(--gold-border);color:var(--gold2);display:block}
+    .spinner{width:18px;height:18px;border:2px solid rgba(26,26,26,.2);border-top-color:#1a1a1a;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .login-footer{margin-top:24px;font-size:12px;color:var(--text3);line-height:1.8}
+    #login-error{display:none;margin-top:14px;font-size:12px;color:var(--red)}
 
-  .tagline{
-    font-size:16px;
-    color:var(--text2);
-    margin-bottom:48px;
-    line-height:1.6;
-  }
+    /* ── APP ── */
+    #app{display:none;position:relative;z-index:1}
 
-  .card{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:20px;
-    padding:32px;
-  }
+    /* ── HEADER ── */
+    #hdr{
+      position:sticky;top:0;z-index:100;
+      background:rgba(8,11,18,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--gold-border);
+      padding:10px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;
+    }
+    .hdr-brand{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--gold);margin-bottom:1px}
+    .hdr-date{font-size:14px;font-weight:800;color:var(--text)}
+    .hdr-hijri{font-size:12px;color:var(--text2);margin-top:2px}
+    .hdr-right{display:flex;align-items:center;gap:10px}
+    .user-pill{
+      display:flex;align-items:center;gap:8px;
+      background:var(--surface2);border:1px solid var(--border);
+      border-radius:100px;padding:5px 12px 5px 6px;
+    }
+    .user-avatar{width:28px;height:28px;border-radius:50%;background:var(--gold-dim);border:1px solid var(--gold-border);object-fit:cover}
+    .user-name{font-size:12px;font-weight:700;color:var(--text2)}
+    .btn-logout{
+      padding:6px 12px;background:transparent;
+      border:1px solid var(--border2);border-radius:8px;
+      color:var(--text3);font-size:11px;font-weight:700;font-family:'Tajawal',sans-serif;
+      cursor:pointer;transition:all .15s;
+    }
+    .btn-logout:hover{border-color:var(--red);color:var(--red)}
 
-  .card-title{
-    font-size:18px;
-    font-weight:700;
-    margin-bottom:8px;
-  }
+    /* ── NAV TABS ── */
+    #nav{
+      display:flex;gap:4px;padding:10px 14px;
+      overflow-x:auto;scrollbar-width:none;
+      background:var(--surface);border-bottom:1px solid var(--border);
+      position:sticky;top:57px;z-index:99;
+    }
+    #nav::-webkit-scrollbar{display:none}
+    .nav-tab{
+      display:flex;align-items:center;gap:6px;
+      padding:7px 14px;border-radius:10px;white-space:nowrap;
+      font-size:12px;font-weight:700;font-family:'Tajawal',sans-serif;
+      border:1px solid transparent;background:transparent;
+      color:var(--text3);cursor:pointer;transition:all .2s;flex-shrink:0;
+    }
+    .nav-tab:hover{background:var(--surface2);color:var(--text2)}
+    .nav-tab.active{background:var(--gold-dim2);border-color:var(--gold-border2);color:var(--gold2)}
 
-  .card-sub{
-    font-size:14px;
-    color:var(--text2);
-    margin-bottom:28px;
-    line-height:1.6;
-  }
+    /* ── MAIN ── */
+    main{padding:14px;max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+    .page{display:none}
+    .page.active{display:flex;flex-direction:column;gap:14px}
 
-  /* ── Google button ── */
-  .btn-google{
-    width:100%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:12px;
-    padding:14px 20px;
-    background:#fff;
-    color:#1a1a1a;
-    border:none;
-    border-radius:12px;
-    font-size:15px;
-    font-weight:700;
-    font-family:'Tajawal',sans-serif;
-    cursor:pointer;
-    transition:all .2s;
-    position:relative;
-    overflow:hidden;
-  }
-  .btn-google:hover{
-    background:#f0f0f0;
-    transform:translateY(-1px);
-    box-shadow:0 8px 24px rgba(0,0,0,0.3);
-  }
-  .btn-google:active{transform:translateY(0)}
-  .btn-google:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+    /* ── SECTION DIVIDER ── */
+    .sec-div{margin-top:6px;margin-bottom:2px}
+    .sec-line{height:1px;background:linear-gradient(90deg,transparent,var(--gold-border),transparent);margin-bottom:12px}
+    .sec-title{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.18em;color:var(--gold)}
+    .sec-sub{font-size:10px;color:var(--text3);margin-top:3px}
 
-  .google-icon{
-    width:20px;height:20px;flex-shrink:0;
-  }
+    /* ── CARDS ── */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px}
+    .card-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:560px){.row2{grid-template-columns:1fr}}
 
-  /* ── divider ── */
-  .divider{
-    display:flex;align-items:center;gap:12px;
-    margin:20px 0;color:var(--text3);font-size:12px;
-  }
-  .divider::before,.divider::after{
-    content:'';flex:1;height:1px;background:var(--border);
-  }
+    /* ── SCORE STRIP ── */
+    .score-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    @media(max-width:480px){.score-strip{grid-template-columns:repeat(2,1fr)}}
+    .score-ring-card{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:14px;padding:14px 8px;text-align:center;position:relative;
+    }
+    .sr-svg{width:68px;height:68px;margin:0 auto 6px;display:block}
+    .sr-pct{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:68px;height:68px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;pointer-events:none}
+    .sr-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+    .sr-compare{font-size:9px;color:var(--text3);margin-top:3px}
 
-  /* ── status messages ── */
-  .status{
-    margin-top:16px;
-    padding:12px 16px;
-    border-radius:10px;
-    font-size:13px;
-    font-weight:500;
-    display:none;
-    text-align:right;
-  }
-  .status.success{
-    background:rgba(52,211,153,0.1);
-    border:1px solid rgba(52,211,153,0.25);
-    color:var(--green);
-    display:block;
-  }
-  .status.error{
-    background:rgba(248,113,113,0.1);
-    border:1px solid rgba(248,113,113,0.25);
-    color:var(--red);
-    display:block;
-  }
-  .status.loading{
-    background:var(--gold-dim);
-    border:1px solid var(--gold-border);
-    color:var(--gold2);
-    display:block;
-  }
+    /* ── WEIGHT ── */
+    .weight-card{display:flex;gap:16px;align-items:stretch;flex-wrap:wrap}
+    .wc-left,.wc-right{flex:1;min-width:160px}
+    .wc-big{font-size:36px;font-weight:900;color:var(--text);line-height:1}
+    .wc-big small{font-size:16px;color:var(--text2);font-weight:600}
+    .wc-delta{font-size:12px;font-weight:700;margin-top:4px}
+    .wc-delta.loss{color:var(--green)}.wc-delta.gain{color:var(--red)}.wc-delta.flat{color:var(--text2)}
+    .wc-input-row{display:flex;gap:8px;margin-top:12px;align-items:center}
+    .wc-input{width:90px;padding:8px 10px;font-size:14px;font-weight:700;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);outline:none;text-align:center;font-family:'Tajawal',sans-serif}
+    .wc-input:focus{border-color:var(--gold)}
+    .wc-save-btn{padding:8px 14px;font-size:12px;font-weight:700;background:var(--gold);color:#0a0c10;border:none;border-radius:8px;cursor:pointer;font-family:'Tajawal',sans-serif;transition:opacity .15s}
+    .wc-save-btn:hover{opacity:.85}
+    .wc-milestone{margin-top:10px}
+    .wc-mile-next{font-size:12px;font-weight:700;color:var(--gold2)}
+    .wc-mile-end{font-size:10px;color:var(--text3);margin-top:2px}
+    .w7-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px}
+    .w7-table td{padding:6px 8px;border-bottom:1px solid var(--border)}
+    .w7-table tr:last-child td{border-bottom:none}
+    .w7-table .w7-day{color:var(--text2);font-weight:600;font-size:10px}
+    .w7-table .w7-val{font-weight:800;text-align:right;font-size:13px}
+    .w7-table .w7-today{color:var(--gold2)}
+    .w7-table .w7-empty{color:var(--text3);opacity:.4;text-align:right}
 
-  /* ── spinner inside button ── */
-  .spinner{
-    width:18px;height:18px;
-    border:2px solid rgba(26,26,26,0.2);
-    border-top-color:#1a1a1a;
-    border-radius:50%;
-    animation:spin .7s linear infinite;
-    flex-shrink:0;
-  }
-  @keyframes spin{to{transform:rotate(360deg)}}
+    /* ── PRAYER ── */
+    .pr-row{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;margin-bottom:4px;font-size:13px;transition:all .15s}
+    .pr-row.done{opacity:.42}
+    .pr-row.active{background:var(--gold-dim2);border:1px solid var(--gold-border2)}
+    .pr-row.upcoming{background:var(--surface2);border:1px solid var(--border)}
+    .pr-icon{font-size:15px;min-width:20px}
+    .pr-name{font-weight:600;flex:1;font-size:13px}
+    .pr-name-next{color:var(--gold2)}
+    .pr-time{font-size:13px;font-weight:700;white-space:nowrap}
+    .pr-time.t-done{color:var(--text3)}.pr-time.t-next{color:var(--gold2)}
+    .pr-badge{font-size:10px;padding:2px 7px;border-radius:20px;white-space:nowrap}
+    .pr-badge.b-done{background:var(--green-dim);border:1px solid var(--green-border);color:var(--green)}
+    .pr-cdown{font-size:10px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;background:var(--gold-dim2);border:1px solid var(--gold-border);border-radius:6px;padding:2px 7px;white-space:nowrap;flex-shrink:0}
+    .fajr-strip{display:flex;justify-content:center;align-items:center;margin-top:14px;padding:10px 13px;background:var(--green-dim);border:1px solid var(--green-border);border-radius:10px;gap:10px}
+    .fajr-strip .fs-label{font-size:10px;font-weight:700;color:#6ee7b7;text-transform:uppercase;letter-spacing:.07em}
+    .fajr-strip .fs-time{font-size:18px;font-weight:900;color:var(--green);font-family:monospace}
 
-  /* ── footer ── */
-  .footer-note{
-    margin-top:24px;
-    font-size:12px;
-    color:var(--text3);
-    line-height:1.7;
-  }
+    /* ── PROGRESS RINGS ── */
+    .dual-rings{display:flex;gap:10px;justify-content:center;margin-bottom:10px}
+    .ring-wrap{display:flex;flex-direction:column;align-items:center;flex:1;max-width:130px}
+    .ring-svg-wrap{position:relative;width:112px;height:112px}
+    .ring-svg-wrap svg{width:100%;height:100%}
+    .ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+    .ring-day{font-size:30px;font-weight:900;line-height:1}
+    .ring-day.c-gold{color:var(--gold2)}.ring-day.c-blue{color:var(--blue)}
+    .ring-of{font-size:11px;font-weight:700;color:var(--text2);margin-top:1px}
+    .ring-label{font-size:12px;font-weight:800;color:var(--text);text-align:center;margin-top:6px}
+    .ring-sub{font-size:10px;color:var(--text2);text-align:center;margin-top:2px}
+    .prog-eid{font-size:12px;font-weight:800;color:var(--gold2);text-align:center;margin-top:6px}
 
-  /* ── dashboard (hidden until login) ── */
-  #dashboard{
-    display:none;
-    position:relative;
-    z-index:1;
-    width:100%;
-    max-width:640px;
-  }
+    /* ── HEALTH PACK ── */
+    .pack-sect{margin-bottom:18px}
+    .pack-sect:last-child{margin-bottom:0}
+    .pack-title{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .body-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:8px}
+    .body-item{display:flex;align-items:center;gap:8px;padding:10px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s;user-select:none}
+    .body-item.checked{background:var(--green-dim);border-color:var(--green-border)}
+    .bi-icon{font-size:17px}
+    .bi-label{font-size:12px;font-weight:600;flex:1;line-height:1.25}
+    .bi-dot{width:16px;height:16px;min-width:16px;border-radius:50%;border:2px solid var(--border2);background:transparent;display:flex;align-items:center;justify-content:center;font-size:9px;transition:all .15s}
+    .body-item.checked .bi-dot{background:var(--green);border-color:var(--green);color:#fff}
+    .cups-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+    .cup{width:44px;height:44px;border-radius:50%;border:2px solid var(--border2);background:var(--surface2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;user-select:none;font-size:11px;font-weight:700;color:var(--text2)}
+    .cup.filled{background:var(--blue-dim);border-color:var(--blue-border);color:#93c5fd;font-size:17px}
+    .cup-hint{font-size:11px;color:var(--text2);padding:5px 9px;background:var(--surface2);border-radius:6px;display:inline-block}
 
-  .dash-header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    margin-bottom:28px;
-    flex-wrap:wrap;
-    gap:12px;
-  }
+    /* ── MEDICINE ── */
+    .pills-row{display:flex;flex-direction:column;gap:8px}
+    .pill-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s;user-select:none}
+    .pill-item.taken{background:var(--purple-dim);border-color:var(--purple-border)}
+    .pi-icon{font-size:18px;flex-shrink:0}
+    .pi-info{flex:1;min-width:0}
+    .pi-name{font-size:12px;font-weight:800;color:var(--text)}
+    .pill-item.taken .pi-name{color:var(--purple)}
+    .pi-meta{font-size:10px;color:var(--text2);margin-top:1px}
+    .pi-badge{font-size:10px;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+    .pi-badge.untaken{background:var(--surface);border:1px solid var(--border2);color:var(--text2)}
+    .pi-badge.taken-b{background:var(--purple-dim);border:1px solid var(--purple-border);color:var(--purple)}
+    .pi-del{font-size:14px;color:var(--text3);cursor:pointer;padding:4px;opacity:.5;transition:opacity .15s;flex-shrink:0}
+    .pi-del:hover{opacity:1;color:var(--red)}
+    .add-med-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;background:var(--surface2);border:1px dashed var(--text3);border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;color:var(--text3);transition:all .15s;font-family:'Tajawal',sans-serif}
+    .add-med-btn:hover{border-color:var(--gold);color:var(--gold)}
 
-  .dash-greeting{
-    font-size:24px;
-    font-weight:800;
-  }
-  .dash-greeting span{color:var(--gold2);}
+    /* ── MODAL ── */
+    .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.65);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px}
+    .modal{background:var(--surface);border:1px solid var(--border2);border-radius:18px;padding:22px;width:100%;max-width:360px}
+    .modal h3{font-size:15px;font-weight:800;color:var(--text);margin-bottom:16px}
+    .modal label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;display:block;margin-bottom:4px;margin-top:12px}
+    .modal input,.modal select,.modal textarea{width:100%;padding:9px 11px;font-size:13px;background:var(--surface2);border:1px solid var(--border2);border-radius:9px;color:var(--text);outline:none;font-family:'Tajawal',sans-serif}
+    .modal input:focus,.modal select:focus,.modal textarea:focus{border-color:var(--gold)}
+    .modal select{appearance:none;-webkit-appearance:none}
+    .modal-btns{display:flex;gap:8px;margin-top:16px}
+    .modal-btns button{flex:1;padding:10px;font-size:13px;font-weight:700;border:none;border-radius:9px;cursor:pointer;font-family:'Tajawal',sans-serif}
+    .mm-save{background:var(--gold);color:#080b12}
+    .mm-cancel{background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
 
-  .user-pill{
-    display:flex;align-items:center;gap:10px;
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:100px;
-    padding:6px 14px 6px 8px;
-  }
-  .user-avatar{
-    width:32px;height:32px;
-    border-radius:50%;
-    background:var(--gold-dim);
-    border:1px solid var(--gold-border);
-    object-fit:cover;
-  }
-  .user-name{font-size:13px;font-weight:600;}
+    /* ── WORK SESSIONS ── */
+    .work-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px}
+    @media(max-width:500px){.work-grid{grid-template-columns:1fr}}
+    .work-type{background:var(--surface2);border:1px solid var(--border);border-radius:13px;padding:14px}
+    .wt-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin-bottom:10px}
+    .wt-btn{width:100%;padding:11px;font-size:13px;font-weight:800;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s;margin-bottom:10px;font-family:'Tajawal',sans-serif}
+    .wt-btn:hover{opacity:.88}.wt-btn:active{opacity:.72}
+    .wt-btn-growth{background:var(--gold);color:#080b12}
+    .wt-btn-upwork{background:var(--blue);color:#fff}
+    .session-dots-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+    .sesh-dot{width:38px;height:38px;border-radius:10px;border:2px solid var(--border2);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;transition:all .15s;user-select:none}
+    .sesh-dot:active{transform:scale(.85)}
+    .sesh-dot.done-g{background:var(--gold-dim2);border-color:var(--gold-border)}
+    .sesh-dot.done-u{background:var(--blue-dim);border-color:var(--blue-border)}
+    .sesh-dot.add{border-style:dashed;border-color:var(--text3);color:var(--text3);font-size:20px}
+    .sesh-dot.add:hover{border-color:var(--gold);color:var(--gold)}
+    .sesh-total{font-size:11px;color:var(--text2);margin-top:6px}
+    .sesh-total span{font-weight:800}
+    .sesh-total span.c-g{color:var(--gold2)}.sesh-total span.c-u{color:var(--blue)}
+    .wt-log{margin-top:10px;display:flex;flex-direction:column;gap:4px;max-height:72px;overflow-y:auto}
+    .wt-log-item{font-size:10px;color:var(--text2);padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:5px;display:flex;justify-content:space-between}
 
-  .btn-logout{
-    padding:6px 14px;
-    background:transparent;
-    border:1px solid var(--border);
-    border-radius:8px;
-    color:var(--text2);
-    font-size:12px;
-    font-family:'Tajawal',sans-serif;
-    cursor:pointer;
-    transition:all .15s;
-  }
-  .btn-logout:hover{border-color:var(--red);color:var(--red);}
+    /* ── WEEK ── */
+    .week-nav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+    .week-nav-btn{width:30px;height:30px;border-radius:8px;border:1px solid var(--gold-border);background:var(--gold-dim2);color:var(--gold2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+    .week-nav-btn:hover{background:var(--gold-dim2)}.week-nav-btn:disabled{opacity:.3;cursor:default}
+    .week-nav-label{font-size:12px;font-weight:700;color:var(--text);flex:1;text-align:center}
+    .week-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:14px}
+    .ws-day{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 4px;text-align:center;cursor:pointer;transition:all .15s;user-select:none}
+    .ws-day:hover{border-color:var(--gold-border)}.ws-day.today{border-color:var(--gold);background:var(--gold-dim2)}
+    .ws-day.selected{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}.ws-day.future{opacity:.35;cursor:default}
+    .ws-day-name{font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase}
+    .ws-day-num{font-size:18px;font-weight:900;color:var(--text);margin:2px 0}
+    .ws-day-bar{height:4px;border-radius:2px;background:var(--border2);margin:4px auto 0;width:80%;overflow:hidden}
+    .ws-day-bar-fill{height:100%;border-radius:2px;transition:width .3s}
+    .ws-day-pct{font-size:9px;font-weight:700;margin-top:3px}
+    .day-detail{background:var(--surface2);border:1px solid var(--border2);border-radius:13px;padding:14px;margin-bottom:14px}
+    .dd-header{font-size:12px;font-weight:800;color:var(--text);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+    .dd-close{font-size:18px;cursor:pointer;color:var(--text2);padding:4px}
+    .dd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+    .dd-item{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+    .dd-item-label{font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-bottom:4px}
+    .dd-item-val{font-size:14px;font-weight:800}
+    .week-table{width:100%;border-collapse:collapse;font-size:11px}
+    .week-table th{font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;padding:8px 6px;text-align:center;border-bottom:1px solid var(--border)}
+    .week-table td{padding:10px 6px;text-align:center;border-bottom:1px solid var(--border);font-weight:600}
+    .week-table tr:last-child td{border-bottom:none}
+    .week-table .wt-current{background:var(--gold-dim)}
+    .week-table .wt-label-cell{text-align:right;font-weight:700;color:var(--text);font-size:11px}
+    .week-table .wt-empty{color:var(--text3);opacity:.4}
+    .wt-pct-good{color:var(--green)}.wt-pct-ok{color:var(--gold2)}.wt-pct-bad{color:var(--red)}
+    .view-month-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;font-size:11px;font-weight:700;color:var(--gold2);background:var(--gold-dim2);border:1px solid var(--gold-border);border-radius:8px;cursor:pointer;transition:all .15s;margin-top:10px;font-family:'Tajawal',sans-serif}
+    .view-month-btn:hover{background:var(--gold-dim2)}
+    .month-list{margin-top:12px;display:flex;flex-direction:column;gap:4px}
+    .ml-row{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px}
+    .ml-day{font-size:11px;font-weight:700;color:var(--text);min-width:60px}
+    .ml-bar{flex:1;height:6px;background:var(--border2);border-radius:3px;overflow:hidden}
+    .ml-bar-fill{height:100%;border-radius:3px}
+    .ml-pct{font-size:10px;font-weight:700;min-width:35px;text-align:right}
 
-  .welcome-card{
-    background:var(--surface);
-    border:1px solid var(--gold-border);
-    border-radius:20px;
-    padding:32px;
-    text-align:center;
-  }
-  .welcome-card .big-emoji{font-size:48px;margin-bottom:16px;}
-  .welcome-card h2{font-size:22px;font-weight:800;margin-bottom:8px;}
-  .welcome-card p{font-size:14px;color:var(--text2);line-height:1.7;}
+    /* ── FINANCE ── */
+    .finance-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+    @media(max-width:480px){.finance-summary{grid-template-columns:1fr}}
+    .fin-stat{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+    .fin-stat-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+    .fin-stat-val{font-size:20px;font-weight:900}
+    .fin-stat-sub{font-size:10px;color:var(--text3);margin-top:3px}
+    .fin-tabs{display:flex;gap:6px;margin-bottom:12px}
+    .fin-tab{padding:6px 14px;font-size:12px;font-weight:700;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-family:'Tajawal',sans-serif;transition:all .15s}
+    .fin-tab.active{background:var(--gold-dim2);border-color:var(--gold-border2);color:var(--gold2)}
+    .fin-list{display:flex;flex-direction:column;gap:6px}
+    .fin-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px}
+    .fin-item-cat{font-size:18px;flex-shrink:0}
+    .fin-item-info{flex:1;min-width:0}
+    .fin-item-desc{font-size:13px;font-weight:700;color:var(--text)}
+    .fin-item-meta{font-size:10px;color:var(--text2);margin-top:1px}
+    .fin-item-amount{font-size:14px;font-weight:900;flex-shrink:0}
+    .fin-item-amount.expense{color:var(--red)}
+    .fin-item-amount.income{color:var(--green)}
+    .fin-item-del{font-size:13px;color:var(--text3);cursor:pointer;padding:4px;opacity:.5;transition:opacity .15s;flex-shrink:0}
+    .fin-item-del:hover{opacity:1;color:var(--red)}
+    .add-fin-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;background:var(--surface2);border:1px dashed var(--text3);border-radius:10px;cursor:pointer;font-size:11px;font-weight:700;color:var(--text3);transition:all .15s;font-family:'Tajawal',sans-serif;margin-top:8px}
+    .add-fin-btn:hover{border-color:var(--gold);color:var(--gold)}
+    .fin-currency-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .currency-badge{padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'Tajawal',sans-serif;transition:all .15s}
+    .currency-badge.active{background:var(--gold-dim2);border-color:var(--gold-border2);color:var(--gold2)}
+    .fin-balance{margin-top:10px;padding:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:12px}
+    .fin-balance-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+    .fin-balance-currency{font-size:12px;font-weight:700;color:var(--text2)}
+    .fin-balance-val{font-size:14px;font-weight:900}
+    .fin-balance-val.pos{color:var(--green)}.fin-balance-val.neg{color:var(--red)}.fin-balance-val.zero{color:var(--text2)}
 
-  .modules-grid{
-    display:grid;
-    grid-template-columns:repeat(2,1fr);
-    gap:12px;
-    margin-top:16px;
-  }
-  @media(max-width:480px){.modules-grid{grid-template-columns:1fr}}
+    /* ── NUTRITION ── */
+    .macro-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+    @media(max-width:480px){.macro-strip{grid-template-columns:repeat(2,1fr)}}
+    .macro-item{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+    .macro-val{font-size:22px;font-weight:900;margin-bottom:2px}
+    .macro-target{font-size:10px;color:var(--text2);margin-bottom:6px}
+    .macro-bar-wrap{height:5px;background:var(--border2);border-radius:3px;overflow:hidden}
+    .macro-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+    .macro-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;margin-top:5px}
+    .meal-list{display:flex;flex-direction:column;gap:8px}
+    .meal-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .15s}
+    .meal-item.logged{background:var(--green-dim);border-color:var(--green-border)}
+    .meal-icon{font-size:20px;flex-shrink:0}
+    .meal-info{flex:1}
+    .meal-name{font-size:13px;font-weight:700}
+    .meal-macros{font-size:10px;color:var(--text2);margin-top:2px}
+    .meal-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:9px;transition:all .15s}
+    .meal-item.logged .meal-dot{background:var(--green);border-color:var(--green);color:#fff}
+    .kcal-ring-wrap{display:flex;justify-content:center;margin-bottom:14px;position:relative}
+    .kcal-ring-wrap svg{width:120px;height:120px}
+    .kcal-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+    .kcal-num{font-size:22px;font-weight:900;color:var(--gold2);line-height:1}
+    .kcal-lbl{font-size:9px;color:var(--text2);margin-top:1px}
 
-  .module-card{
-    background:var(--bg);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:18px;
-    text-align:right;
-    transition:border-color .2s;
-  }
-  .module-card:hover{border-color:var(--gold-border);}
-  .module-card .m-icon{font-size:24px;margin-bottom:8px;}
-  .module-card .m-title{font-size:14px;font-weight:700;margin-bottom:4px;}
-  .module-card .m-sub{font-size:12px;color:var(--text3);}
-  .module-card .m-badge{
-    display:inline-block;margin-top:8px;
-    font-size:10px;padding:3px 8px;border-radius:100px;
-    background:var(--gold-dim);border:1px solid var(--gold-border);color:var(--gold2);
-    font-weight:600;
-  }
-</style>
+    /* ── GYM ── */
+    .gym-day-strip{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:14px;padding-bottom:2px}
+    .gym-day-strip::-webkit-scrollbar{display:none}
+    .gym-day{flex-shrink:0;padding:8px 14px;border-radius:10px;border:1px solid var(--border2);background:var(--surface2);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;text-align:center}
+    .gym-day.active{background:var(--gold-dim2);border-color:var(--gold-border2);color:var(--gold2)}
+    .gym-day.rest{opacity:.6}
+    .gym-exercise{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:8px}
+    .gym-ex-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .gym-ex-name{font-size:13px;font-weight:800;color:var(--text)}
+    .gym-ex-muscle{font-size:10px;color:var(--text3);font-weight:600}
+    .gym-sets{display:flex;flex-direction:column;gap:5px}
+    .gym-set-row{display:flex;align-items:center;gap:8px}
+    .gym-set-label{font-size:10px;color:var(--text2);font-weight:700;min-width:30px}
+    .gym-set-input{width:64px;padding:5px 8px;font-size:12px;font-weight:700;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text);outline:none;text-align:center;font-family:'Tajawal',sans-serif}
+    .gym-set-input:focus{border-color:var(--gold)}
+    .gym-set-x{font-size:12px;color:var(--text3);font-weight:700}
+    .gym-set-done{width:26px;height:26px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .15s}
+    .gym-set-done.done{background:var(--green-dim);border-color:var(--green-border);color:var(--green)}
+    .gym-complete-btn{width:100%;padding:12px;font-size:13px;font-weight:800;background:var(--gold);color:#080b12;border:none;border-radius:10px;cursor:pointer;margin-top:10px;font-family:'Tajawal',sans-serif;transition:opacity .15s}
+    .gym-complete-btn:hover{opacity:.88}
+    .gym-rest-card{text-align:center;padding:24px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:13px}
+    .gym-rest-emoji{font-size:40px;margin-bottom:8px}
+    .gym-rest-title{font-size:16px;font-weight:800;margin-bottom:4px}
+    .gym-rest-sub{font-size:12px;color:var(--text2)}
+
+    /* ── ARCHITECTURE ── */
+    .arch-context{font-size:10px;color:var(--text2);margin-bottom:10px}
+    .timeline-outer{position:relative;height:32px;border-radius:6px;overflow:hidden;margin-bottom:2px}
+    .t-block{position:absolute;top:0;height:100%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;letter-spacing:.04em;color:rgba(255,255,255,.6);overflow:hidden;white-space:nowrap}
+    .t-sleep{background:#2a1a5e}.t-work{background:#1a2a1a}.t-water{background:#0f2e1a}
+    .hour-axis{display:flex;justify-content:space-between;font-size:9px;color:var(--text2);padding:2px 0 8px}
+    .prayer-marker-row{position:relative;height:50px;margin-bottom:10px}
+    .pm-item{position:absolute;transform:translateX(-50%);text-align:center}
+    .pm-line{width:1px;height:14px;margin:0 auto 2px}
+    .pm-icon{font-size:12px}.pm-label{font-size:8px;font-weight:800}.pm-time{font-size:8px;color:var(--text2)}
+    .arch-stats{display:grid;gap:8px;margin-top:6px;grid-template-columns:repeat(3,1fr)}
+    .ss-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+    .ss-val{font-size:20px;font-weight:900;color:var(--text)}.ss-lbl{font-size:10px;color:var(--text2);margin-top:2px}
+    .arch-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+    .arch-legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2)}
+    .leg-dot{width:10px;height:10px;border-radius:3px}
+
+    /* ── QUOTE ── */
+    .quote-card{position:relative;overflow:hidden}
+    .quote-card::before{content:'"';position:absolute;top:-14px;left:10px;font-size:100px;color:rgba(201,168,76,.07);font-family:Georgia,serif;line-height:1;pointer-events:none}
+    .qnav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+    .qnav-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--gold-border);background:var(--gold-dim2);color:var(--gold2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+    .qnav-btn:hover{background:var(--gold-dim2)}
+    .qnum{font-size:11px;color:var(--text2)}
+    .qtext{font-size:14px;line-height:1.7;color:var(--text);position:relative;z-index:1}
+    .qtext strong{color:var(--gold2)}
+    .qtags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+    .qtag{font-size:10px;padding:2px 8px;border-radius:20px;background:var(--gold-dim2);border:1px solid var(--gold-border);color:var(--gold2)}
+
+    /* ── TOAST ── */
+    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--gold-border);color:var(--gold2);padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+    #toast.show{opacity:1}
+
+    .loading{text-align:center;padding:16px;font-size:12px;color:var(--text2)}
+  </style>
 </head>
 <body>
 
-<!-- ══ LOGIN PAGE ══════════════════════════════════════ -->
-<div class="login-wrap" id="login-page">
-  <div class="logo-ring">🗂️</div>
-  <div class="brand">LifeOS</div>
-  <div class="tagline">نظامك الشخصي الكامل<br>تمرين · تغذية · أدوية · صلاة · تاسكات</div>
+<div id="loader"><div class="bar"></div></div>
 
-  <div class="card">
-    <div class="card-title">أهلاً بيك يا Islam</div>
-    <div class="card-sub">سجّل دخولك بحساب Google عشان توصل لنظامك</div>
-
+<!-- ══ LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-logo">🗂️</div>
+  <div class="login-brand">LifeOS</div>
+  <div class="login-tagline">نظامك الشخصي الكامل<br>صلاة · تمرين · تغذية · أدوية · مصاريف</div>
+  <div class="login-card">
+    <div class="login-card-title">أهلاً بيك يا Islam 👋</div>
+    <div class="login-card-sub">سجّل دخولك بحساب Google عشان توصل لنظامك</div>
     <button class="btn-google" id="btn-google" onclick="signInWithGoogle()">
       <svg class="google-icon" viewBox="0 0 24 24">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -302,176 +478,815 @@
       </svg>
       <span id="btn-text">الدخول بحساب Google</span>
     </button>
-
-    <div id="status-msg"></div>
+    <div id="login-status"></div>
+    <div id="login-error">⚠ مش مسموح بالدخول</div>
   </div>
-
-  <div class="footer-note">
-    🔒 بياناتك محفوظة بشكل آمن في Firebase<br>
-    مش بنشارك أي معلومات مع أي جهة
-  </div>
+  <div class="login-footer">🔒 بياناتك محفوظة بشكل آمن في Firebase<br>مش بنشارك أي معلومات مع أي جهة</div>
 </div>
 
-<!-- ══ DASHBOARD PAGE ══════════════════════════════════ -->
-<div id="dashboard">
-  <div class="dash-header">
-    <div class="dash-greeting">أهلاً، <span id="dash-name">Islam</span> 👋</div>
-    <div style="display:flex;align-items:center;gap:10px;">
+<!-- ══ APP ══ -->
+<div id="app">
+  <header id="hdr">
+    <div>
+      <div class="hdr-brand">LifeOS</div>
+      <div class="hdr-date" id="hdr-date">—</div>
+      <div class="hdr-hijri" id="hdr-hijri">Loading…</div>
+    </div>
+    <div class="hdr-right">
       <div class="user-pill">
-        <img class="user-avatar" id="user-avatar" src="" alt="avatar">
-        <span class="user-name" id="user-pill-name"></span>
+        <img class="user-avatar" id="user-avatar" src="" alt="">
+        <span class="user-name" id="user-name">Islam</span>
       </div>
-      <button class="btn-logout" onclick="signOut()">خروج</button>
+      <button class="btn-logout" onclick="doSignOut()">خروج</button>
     </div>
-  </div>
+  </header>
 
-  <div class="welcome-card">
-    <div class="big-emoji">✅</div>
-    <h2>الـ Login شغال بنجاح!</h2>
-    <p>
-      تم تسجيل الدخول بحساب Google وحفظ بياناتك في Firestore.<br>
-      دلوقتي نكمل ونبني باقي الموديولات.
-    </p>
+  <nav id="nav">
+    <button class="nav-tab active" data-page="home" onclick="switchPage('home')">🏠 Home</button>
+    <button class="nav-tab" data-page="prayers" onclick="switchPage('prayers')">🕌 الصلاة</button>
+    <button class="nav-tab" data-page="health" onclick="switchPage('health')">⚡ Health</button>
+    <button class="nav-tab" data-page="gym" onclick="switchPage('gym')">💪 الجيم</button>
+    <button class="nav-tab" data-page="nutrition" onclick="switchPage('nutrition')">🥗 التغذية</button>
+    <button class="nav-tab" data-page="finance" onclick="switchPage('finance')">💰 المصاريف</button>
+    <button class="nav-tab" data-page="week" onclick="switchPage('week')">📅 الأسبوع</button>
+  </nav>
 
-    <div class="modules-grid">
-      <div class="module-card">
-        <div class="m-icon">💊</div>
-        <div class="m-title">الأدوية والقطرات</div>
-        <div class="m-sub">علاج الغدة · Fortymox · Ojoalivato</div>
-        <span class="m-badge">الأولوية #1</span>
+  <main>
+
+    <!-- ══ HOME PAGE ══ -->
+    <div class="page active" id="page-home">
+      <div class="sec-div"><div class="sec-line"></div><div class="sec-title">Today's Snapshot</div><div class="sec-sub">نظرة سريعة على يومك</div></div>
+      <div class="score-strip" id="score-strip"></div>
+      <div class="row2">
+        <div class="card">
+          <div class="card-label">⚖️ Weight Tracker</div>
+          <div class="weight-card">
+            <div class="wc-left">
+              <div class="wc-big" id="wc-today">—<small> kg</small></div>
+              <div class="wc-delta" id="wc-delta"></div>
+              <div class="wc-input-row">
+                <input type="number" step="0.1" class="wc-input" id="wc-input" placeholder="85.0">
+                <button class="wc-save-btn" onclick="saveWeight()">Save</button>
+              </div>
+              <div class="wc-milestone" id="wc-milestone"></div>
+            </div>
+            <div class="wc-right"><div id="wc-week-table"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">📅 Progress</div>
+          <div class="dual-rings">
+            <div class="ring-wrap">
+              <div class="ring-svg-wrap"><svg viewBox="0 0 112 112">
+                <circle cx="56" cy="56" r="44" fill="none" stroke="#1c2333" stroke-width="9"/>
+                <circle cx="56" cy="56" r="44" fill="none" stroke="#c9a84c" stroke-width="9" stroke-linecap="round" id="ram-arc" stroke-dasharray="0 276.5" transform="rotate(-90 56 56)"/>
+              </svg>
+                <div class="ring-center"><div class="ring-day c-gold" id="ram-day">—</div><div class="ring-of" id="ram-of">of 30</div></div></div>
+              <div class="ring-label" id="ram-label">Ramadan</div>
+              <div class="ring-sub" id="ram-sub">—</div>
+            </div>
+            <div class="ring-wrap">
+              <div class="ring-svg-wrap"><svg viewBox="0 0 112 112">
+                <circle cx="56" cy="56" r="44" fill="none" stroke="#1c2333" stroke-width="9"/>
+                <circle cx="56" cy="56" r="44" fill="none" stroke="#60a5fa" stroke-width="9" stroke-linecap="round" id="mon-arc" stroke-dasharray="0 276.5" transform="rotate(-90 56 56)"/>
+              </svg>
+                <div class="ring-center"><div class="ring-day c-blue" id="mon-day">—</div><div class="ring-of" id="mon-of">—</div></div></div>
+              <div class="ring-label" id="mon-label">March</div>
+              <div class="ring-sub" id="mon-sub">— days left</div>
+            </div>
+          </div>
+          <div class="prog-eid" id="prog-eid">—</div>
+        </div>
       </div>
-      <div class="module-card">
-        <div class="m-icon">💪</div>
-        <div class="m-title">بلان التمرين</div>
-        <div class="m-sub">جيم Mo Salah · 4 أيام · Bassem Belghamdi</div>
-        <span class="m-badge">الأولوية #2</span>
+      <div class="card">
+        <div class="card-label">⚡ Work Sessions</div>
+        <div class="work-grid">
+          <div class="work-type">
+            <div class="wt-label">🚀 Growth Operating</div>
+            <button class="wt-btn wt-btn-growth" id="growth-btn">▶ Start Session</button>
+            <div class="session-dots-row" id="growth-dots"></div>
+            <div class="sesh-total" id="growth-total">0 sessions · 0h today</div>
+            <div class="wt-log" id="growth-log"></div>
+          </div>
+          <div class="work-type">
+            <div class="wt-label">💼 Upwork</div>
+            <button class="wt-btn wt-btn-upwork" id="upwork-btn">▶ Start Session</button>
+            <div class="session-dots-row" id="upwork-dots"></div>
+            <div class="sesh-total" id="upwork-total">0 sessions · 0h today</div>
+            <div class="wt-log" id="upwork-log"></div>
+          </div>
+        </div>
       </div>
-      <div class="module-card">
-        <div class="m-icon">🥗</div>
-        <div class="m-title">بلان التغذية</div>
-        <div class="m-sub">1935 kcal · 196g protein · 5 وجبات</div>
-        <span class="m-badge">الأولوية #3</span>
-      </div>
-      <div class="module-card">
-        <div class="m-icon">🕌</div>
-        <div class="m-title">الحياة الدينية</div>
-        <div class="m-sub">صلاة · قرآن · أذكار · محاسبة</div>
-        <span class="m-badge">الأولوية #4</span>
+      <div class="card quote-card">
+        <div class="qnav"><button class="qnav-btn" onclick="prevQuote()">‹</button><span class="qnum" id="qnum">1 / 1</span><button class="qnav-btn" onclick="nextQuote()">›</button><span style="flex:1"></span><span style="font-size:10px;color:var(--text3)">Principle of the Day</span></div>
+        <div class="qtext" id="qtext">Loading…</div>
+        <div class="qtags" id="qtags"></div>
       </div>
     </div>
-  </div>
+
+    <!-- ══ PRAYERS PAGE ══ -->
+    <div class="page" id="page-prayers">
+      <div class="sec-div"><div class="sec-line"></div><div class="sec-title">الصلاة والعبادة</div></div>
+      <div class="card">
+        <div class="card-label">🕌 Prayer Times</div>
+        <div id="prayer-list"><div class="loading">جاري التحميل…</div></div>
+        <div class="fajr-strip" id="fajr-strip" style="display:none">
+          <span class="fs-label">🌅 فجر الغد</span>
+          <span class="fs-time" id="fajr-time">—:——</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">🌙 Day Architecture</div>
+        <div id="day-arch"><div class="loading">Loading prayer times…</div></div>
+      </div>
+    </div>
+
+    <!-- ══ HEALTH PAGE ══ -->
+    <div class="page" id="page-health">
+      <div class="sec-div"><div class="sec-line"></div><div class="sec-title">Health Pack</div></div>
+      <div class="card">
+        <div class="pack-sect">
+          <div class="pack-title">Body Habits</div>
+          <div class="body-grid" id="body-grid"></div>
+        </div>
+        <div class="pack-sect">
+          <div class="pack-title">💧 Water · 8 cups · 4L · every 50 min</div>
+          <div class="cups-row" id="cups-row"></div>
+          <div class="cup-hint" id="cup-hint">Loading…</div>
+        </div>
+        <div class="pack-sect">
+          <div class="pack-title">💊 Medicine</div>
+          <div class="pills-row" id="pills-row"></div>
+          <div class="add-med-btn" onclick="openAddMed()">+ إضافة دواء</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ GYM PAGE ══ -->
+    <div class="page" id="page-gym">
+      <div class="sec-div"><div class="sec-line"></div><div class="sec-title">بلان التمرين</div><div class="sec-sub">Bassem Belghamdi Plan · Mo Salah Gym</div></div>
+      <div class="card">
+        <div class="card-label">💪 Today's Workout</div>
+        <div class="gym-day-strip" id="gym-day-strip"></div>
+        <div id="gym-content"></div>
+      </div>
+    </div>
+
+    <!-- ══ NUTRITION PAGE ══ -->
+    <div class="page" id="page-nutrition">
+      <div class="sec-div"><div class="sec-line"></div><div class="sec-title">بلان التغذية</div><div class="sec-sub">1935 kcal · 196g protein · 5 وجبات</div></div>
+      <div class="card">
+        <div class="card-label">🥗 Macros Today</div>
+        <div class="kcal-ring-wrap">
+          <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="48" fill="none" stroke="#1c2333" stroke-width="9"/><circle cx="60" cy="60" r="48" fill="none" stroke="#c9a84c" stroke-width="9" stroke-linecap="round" id="kcal-arc" stroke-dasharray="0 301.6" transform="rotate(-90 60 60)"/></svg>
+          <div class="kcal-center"><div class="kcal-num" id="kcal-num">0</div><div class="kcal-lbl">of 1935 kcal</div></div>
+        </div>
+        <div class="macro-strip" id="macro-strip"></div>
+        <div class="meal-list" id="meal-list"></div>
+      </div>
+    </div>
+
+    <!-- ══ FINANCE PAGE ══ -->
+    <div class="page" id="page-finance">
+      <div class="sec-div"><div class="sec-line"></div><div class="sec-title">المصاريف والدخل</div></div>
+      <div class="card">
+        <div class="card-label">💰 Finance Tracker</div>
+        <div class="fin-currency-row">
+          <button class="currency-badge active" data-cur="EGP" onclick="switchCurrency('EGP')">🇪🇬 EGP</button>
+          <button class="currency-badge" data-cur="USD" onclick="switchCurrency('USD')">🇺🇸 USD</button>
+          <button class="currency-badge" data-cur="SAR" onclick="switchCurrency('SAR')">🇸🇦 SAR</button>
+        </div>
+        <div class="finance-summary" id="fin-summary"></div>
+        <div class="fin-balance" id="fin-balance"></div>
+        <div style="margin-top:14px">
+          <div class="fin-tabs">
+            <button class="fin-tab active" data-type="all" onclick="switchFinTab('all')">الكل</button>
+            <button class="fin-tab" data-type="income" onclick="switchFinTab('income')">دخل</button>
+            <button class="fin-tab" data-type="expense" onclick="switchFinTab('expense')">مصروف</button>
+          </div>
+          <div class="fin-list" id="fin-list"></div>
+          <div class="add-fin-btn" onclick="openAddFin('expense')">+ إضافة مصروف</div>
+          <div class="add-fin-btn" style="margin-top:6px;border-color:var(--green-border);color:var(--green)" onclick="openAddFin('income')">+ إضافة دخل</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ WEEK PAGE ══ -->
+    <div class="page" id="page-week">
+      <div class="sec-div"><div class="sec-line"></div><div class="sec-title">Your Week</div></div>
+      <div class="card">
+        <div class="week-nav" id="week-nav"></div>
+        <div class="week-strip" id="week-strip"></div>
+        <div id="day-detail-container"></div>
+        <div style="overflow-x:auto"><table class="week-table" id="week-table"></table></div>
+        <div id="month-grid-container"></div>
+      </div>
+    </div>
+
+  </main>
 </div>
 
-<!-- ══ FIREBASE ═════════════════════════════════════════ -->
+<div id="modal-root"></div>
+<div id="toast"></div>
+
+<!-- ══ FIREBASE ══ -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
 <script>
-// ── Firebase init ──────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyD3auFtwAHgPa--jyywwI5Qa51jezlfDEo",
-  authDomain: "islam-system.firebaseapp.com",
-  projectId: "islam-system",
-  storageBucket: "islam-system.firebasestorage.app",
-  messagingSenderId: "812152950785",
-  appId: "1:812152950785:web:3a92c4c636bf4398513000"
-};
+  /* ══ LOADER ══ */
+  function showLoader(){document.getElementById('loader').classList.add('on')}
+  function hideLoader(){document.getElementById('loader').classList.remove('on')}
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db   = firebase.firestore();
+  /* ══ FIREBASE ══ */
+  const firebaseConfig={
+    apiKey:"AIzaSyD3auFtwAHgPa--jyywwI5Qa51jezlfDEo",
+    authDomain:"islam-system.firebaseapp.com",
+    projectId:"islam-system",
+    storageBucket:"islam-system.firebasestorage.app",
+    messagingSenderId:"812152950785",
+    appId:"1:812152950785:web:3a92c4c636bf4398513000"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth=firebase.auth();
+  const db=firebase.firestore();
 
-// ── UI helpers ─────────────────────────────────────────
-function showStatus(msg, type) {
-  const el = document.getElementById('status-msg');
-  el.textContent = msg;
-  el.className = 'status ' + type;
-}
+  /* ══ CONFIG ══ */
+  const CFG={
+    lat:30.0444,lon:31.2357,method:5, // Cairo — UPDATE to your actual location
+    ramadanStart:new Date('2026-02-19'),
+    totalDays:30,
+    waterCups:8,
+    weightGoal:85,
+    weightMilestoneStep:2,
+  };
+  const TZ='Africa/Cairo';
+  const ALLOWED_UID='GbKhHRzKtQWvx1fOikF8AZD23XX2'; // ← PUT YOUR FIREBASE UID HERE
 
-function setButtonLoading(loading) {
-  const btn  = document.getElementById('btn-google');
-  const text = document.getElementById('btn-text');
-  btn.disabled = loading;
-  if (loading) {
-    text.textContent = 'جاري الدخول...';
-    btn.insertAdjacentHTML('afterbegin', '<div class="spinner"></div>');
-  } else {
-    text.textContent = 'الدخول بحساب Google';
-    const spinner = btn.querySelector('.spinner');
-    if (spinner) spinner.remove();
+  /* ══ TIME UTILS ══ */
+  function cairoNow(){const n=new Date();const p=new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).formatToParts(n);const g=t=>parseInt(p.find(x=>x.type===t)?.value||'0',10);return{h:g('hour'),m:g('minute'),s:g('second')}}
+  const toMins=t=>{if(!t)return 0;const c=t.split(' ')[0];const[h,m]=c.split(':').map(Number);return h*60+m};
+  const fromMins=m=>{m=((m%1440)+1440)%1440;return`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`};
+  const addMins=(t,d)=>fromMins(toMins(t)+d);
+  const nowSecs=()=>{const c=cairoNow();return c.h*3600+c.m*60+c.s};
+  const nowMins=()=>{const c=cairoNow();return c.h*60+c.m};
+  function dateStr(off=0){const d=new Date(Date.now()+off*864e5);const p=new Intl.DateTimeFormat('en-US',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);const g=t=>p.find(x=>x.type===t)?.value||'00';return`${g('year')}-${g('month')}-${g('day')}`}
+  function getEffectiveDate(){const cm=nowMins();const fM=PRAYERS?toMins(PRAYERS.Fajr):280;if(cm<fM)return dateStr(-1);return dateStr(0)}
+  function fmt12(t){if(!t)return'—';const c=t.split(' ')[0];const[h,m]=c.split(':').map(Number);return`${h%12||12}:${String(m).padStart(2,'0')} <small>${h<12?'AM':'PM'}</small>`}
+  function fmt12plain(t){if(!t)return'—';const c=t.split(' ')[0];const[h,m]=c.split(':').map(Number);return`${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`}
+  function fmtSecs(ts){if(ts<=0)return'0s';const h=Math.floor(ts/3600),m=Math.floor((ts%3600)/60),s=ts%60;if(h>0)return`${h}h ${m}m ${s}s`;if(m>0)return`${m}m ${s}s`;return`${s}s`}
+  function ordinal(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0])}
+  function shortDay(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}
+  function shortDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+  function getDaysInMonth(d=new Date()){return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()}
+
+  /* ══ STATE ══ */
+  let TODAY,SK,ST,PRAYERS=null,TOMORROW_FAJR=null,HIJRI_DATA=null;
+  let DAY_CACHE={};
+  let unsubscribeToday=null;
+  let CURRENT_UID=null;
+
+  function refreshToday(){TODAY=getEffectiveDate();SK=`los-${TODAY}`}
+
+  function userRef(){return db.collection('users').doc(CURRENT_UID)}
+  function dayRef(dk){return userRef().collection('days').doc(dk)}
+
+  /* ══ DEFAULT MEDS ══ */
+  const DEFAULT_MEDS=[
+    {id:'thyroid',name:'علاج الغدة',type:'pill',dose:'',anchor:'morning',taken:false},
+    {id:'fortymox',name:'Fortymox',type:'pill',dose:'',anchor:'maghrib',taken:false},
+    {id:'ojoaliv',name:'Ojoalivato',type:'drops',dose:'',anchor:'isha',taken:false},
+  ];
+
+  /* ══ INIT STATE ══ */
+  function initState(){
+    return{
+      date:TODAY,
+      body:{cold:false,sun:false,hair:false,workout:false,siwak:false,walk1:false,walk2:false},
+      cups:Array(CFG.waterCups).fill(false),
+      meds:JSON.parse(JSON.stringify(DEFAULT_MEDS)),
+      growth:{sessions:0,log:[]},
+      upwork:{sessions:0,log:[]},
+      weight:{value:null,unit:'kg',note:''},
+      nutrition:{meals:{}},
+      gym:{day:null,sets:{}},
+      finance:{items:[]},
+    }
   }
-}
 
-function showDashboard(user) {
-  document.getElementById('login-page').style.display  = 'none';
-  document.getElementById('dashboard').style.display   = 'block';
-  document.getElementById('dash-name').textContent     = user.displayName?.split(' ')[0] || 'Islam';
-  document.getElementById('user-pill-name').textContent = user.displayName || user.email;
-  document.getElementById('user-avatar').src           = user.photoURL || '';
-}
-
-function showLogin() {
-  document.getElementById('login-page').style.display = 'flex';
-  document.getElementById('dashboard').style.display  = 'none';
-  setButtonLoading(false);
-  document.getElementById('status-msg').className = 'status';
-}
-
-// ── Google Sign-In ─────────────────────────────────────
-async function signInWithGoogle() {
-  setButtonLoading(true);
-  showStatus('جاري الاتصال بـ Google...', 'loading');
-
-  try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-
-    const result = await auth.signInWithPopup(provider);
-    const user   = result.user;
-
-    // Save user to Firestore
-    await db.collection('users').doc(user.uid).set({
-      name:      user.displayName,
-      email:     user.email,
-      avatar:    user.photoURL,
-      uid:       user.uid,
-      lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-
-    showStatus('✓ تم الدخول بنجاح!', 'success');
-    setTimeout(() => showDashboard(user), 800);
-
-  } catch (err) {
-    setButtonLoading(false);
-    console.error(err);
-
-    const messages = {
-      'auth/popup-closed-by-user':    'أغلقت نافذة الدخول، حاول تاني.',
-      'auth/popup-blocked':           'المتصفح أوقف النافذة، سمح بـ popups وحاول تاني.',
-      'auth/network-request-failed':  'مشكلة في الإنترنت، تأكد من الاتصال.',
-      'auth/cancelled-popup-request': 'تم الإلغاء، حاول تاني.',
-    };
-    showStatus(messages[err.code] || 'حصل خطأ، حاول تاني.', 'error');
+  function fsToState(doc){
+    if(!doc||!doc.exists)return null;
+    const d=doc.data();const s=initState();s.date=doc.id;
+    if(d.health){['cold','sun','hair','workout','siwak','walk1','walk2'].forEach(k=>{s.body[k]=!!d.health[k]})}
+    if(d.water&&Array.isArray(d.water.cups))s.cups=d.water.cups;
+    if(d.medicine&&Array.isArray(d.medicine.items)&&d.medicine.items.length)s.meds=d.medicine.items;
+    if(d.work){if(d.work.growth)s.growth={sessions:d.work.growth.sessions||0,log:d.work.growth.log||[]};if(d.work.upwork)s.upwork={sessions:d.work.upwork.sessions||0,log:d.work.upwork.log||[]}}
+    if(d.weight&&d.weight.value!=null)s.weight=d.weight;
+    if(d.nutrition)s.nutrition=d.nutrition;
+    if(d.gym)s.gym=d.gym;
+    if(d.finance)s.finance=d.finance;
+    return s;
   }
-}
 
-// ── Sign Out ───────────────────────────────────────────
-async function signOut() {
-  await auth.signOut();
-  showLogin();
-}
-
-// ── Auth state listener ────────────────────────────────
-// لو المستخدم سجل دخوله قبل كده، هيفتح الـ dashboard تلقائي
-auth.onAuthStateChanged(user => {
-  if (user) {
-    showDashboard(user);
-  } else {
-    showLogin();
+  function stateToFs(s){
+    const sc=calcScores(s);
+    return{
+      health:{cold:!!s.body.cold,sun:!!s.body.sun,hair:!!s.body.hair,workout:!!s.body.workout,siwak:!!s.body.siwak,walk1:!!s.body.walk1,walk2:!!s.body.walk2},
+      water:{cups:s.cups,total:s.cups.filter(Boolean).length},
+      medicine:{items:s.meds},
+      work:{growth:{sessions:s.growth.sessions,log:s.growth.log||[]},upwork:{sessions:s.upwork.sessions,log:s.upwork.log||[]}},
+      weight:s.weight||{value:null,unit:'kg',note:''},
+      nutrition:s.nutrition||{meals:{}},
+      gym:s.gym||{day:null,sets:{}},
+      finance:s.finance||{items:[]},
+      scores:{health:sc.health,water:sc.water,medicine:sc.medicine,work:sc.work,overall:sc.overall},
+      meta:{gregorianDate:s.date,hijri:HIJRI_DATA||{}}
+    }
   }
-});
+
+  async function saveState(){
+    DAY_CACHE[TODAY]=ST;
+    renderScoreStrip();
+    try{await dayRef(TODAY).set(stateToFs(ST),{merge:true})}
+    catch(e){console.error('saveState failed',e);showToast('⚠ Save failed')}
+  }
+
+  async function loadTodayFromFs(){
+    try{const doc=await dayRef(TODAY).get();return fsToState(doc)||initState()}
+    catch{return initState()}
+  }
+
+  function subscribeToday(){
+    if(unsubscribeToday)unsubscribeToday();
+    unsubscribeToday=dayRef(TODAY).onSnapshot(doc=>{
+      const s=fsToState(doc);
+      if(s){ST=s;DAY_CACHE[TODAY]=ST;renderAll()}
+    },e=>console.warn('snapshot error',e));
+  }
+
+  /* ══ SCORES ══ */
+  function calcScores(s){
+    if(!s)return{health:0,water:0,medicine:0,work:0,overall:0};
+    const bd=['cold','sun','hair','workout','siwak','walk1','walk2'].filter(id=>s.body&&s.body[id]).length;
+    const health=Math.round((bd/7)*100);
+    const water=Math.round(((s.cups||[]).filter(Boolean).length/8)*100);
+    const meds=s.meds||[];const medDone=meds.filter(m=>m.taken).length;
+    const medicine=Math.round((medDone/(meds.length||1))*100);
+    const gs=s.growth?s.growth.sessions:0,us=s.upwork?s.upwork.sessions:0;
+    const work=Math.min(100,Math.round(((gs+us)/3)*100));
+    const overall=Math.round(health*.25+water*.2+medicine*.25+work*.3);
+    return{health,water,medicine,work,overall}
+  }
+
+  async function getWeekAvgScores(){
+    let t={health:0,water:0,medicine:0,work:0},c=0;
+    for(let i=1;i<=7;i++){const d=dateStr(-i);const s=await loadDayState(d);if(s){const sc=calcScores(s);t.health+=sc.health;t.water+=sc.water;t.medicine+=sc.medicine;t.work+=sc.work;c++}}
+    if(c===0)return{health:0,water:0,medicine:0,work:0};
+    return{health:Math.round(t.health/c),water:Math.round(t.water/c),medicine:Math.round(t.medicine/c),work:Math.round(t.work/c)}
+  }
+
+  /* ══ SCORE STRIP ══ */
+  async function renderScoreStrip(){
+    const sc=calcScores(ST);const wa=await getWeekAvgScores();
+    const items=[
+      {label:'Work',pct:sc.work,avg:wa.work,color:'#c9a84c'},
+      {label:'Health',pct:sc.health,avg:wa.health,color:'#34d399'},
+      {label:'Water',pct:sc.water,avg:wa.water,color:'#60a5fa'},
+      {label:'Medicine',pct:sc.medicine,avg:wa.medicine,color:'#a78bfa'},
+    ];
+    const C=2*Math.PI*26;
+    document.getElementById('score-strip').innerHTML=items.map(it=>{
+      const dash=(it.pct/100)*C;const diff=it.pct-it.avg;
+      const dc=diff>0?'color:var(--green)':diff<0?'color:var(--red)':'color:var(--text2)';
+      const ds=diff>0?`↑${diff}%`:diff<0?`↓${Math.abs(diff)}%`:'—';
+      return`<div class="score-ring-card"><svg class="sr-svg" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="none" stroke="#1c2333" stroke-width="5"/><circle cx="30" cy="30" r="26" fill="none" stroke="${it.color}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 30 30)"/></svg><div class="sr-pct" style="color:${it.color}">${it.pct}%</div><div class="sr-label">${it.label}</div><div class="sr-compare" style="${dc}">vs 7d: ${ds}</div></div>`
+    }).join('')
+  }
+
+  /* ══ WEIGHT ══ */
+  function getWeight(dk){const s=DAY_CACHE[dk];if(s&&s.weight&&s.weight.value!=null)return s.weight.value;return null}
+  async function saveWeight(){
+    const v=parseFloat(document.getElementById('wc-input').value);
+    if(isNaN(v)||v<40||v>250){showToast('أدخل وزن صحيح');return}
+    ST.weight={value:v,unit:'kg',note:''};
+    document.getElementById('wc-input').value='';
+    await saveState();renderWeight();showToast(`⚖️ ${v} kg saved`);
+  }
+  function renderWeight(){
+    const tw=getWeight(TODAY),yw=getWeight(dateStr(-1));
+    document.getElementById('wc-today').innerHTML=tw?`${tw}<small> kg</small>`:'—<small> kg</small>';
+    const dEl=document.getElementById('wc-delta');
+    if(tw&&yw){const diff=tw-yw;dEl.className=`wc-delta ${diff<0?'loss':diff>0?'gain':'flat'}`;dEl.textContent=`${diff>0?'+':''}${diff.toFixed(1)} kg vs yesterday`}else dEl.textContent='';
+    const cw=tw||yw||90;const nm=Math.floor(cw/CFG.weightMilestoneStep)*CFG.weightMilestoneStep;
+    document.getElementById('wc-milestone').innerHTML=`<div class="wc-mile-next">🎯 Next: ${nm} kg · ${(cw-nm).toFixed(1)} kg to go</div><div class="wc-mile-end">Goal: ${CFG.weightGoal} kg · ${(cw-CFG.weightGoal).toFixed(1)} kg journey</div>`;
+    let rows='';for(let i=6;i>=0;i--){const d=dateStr(-i);const w=getWeight(d);const isT=d===TODAY;rows+=`<tr><td class="w7-day">${shortDay(d)} ${new Date(d+'T12:00:00').getDate()}</td><td class="${w?(isT?'w7-val w7-today':'w7-val'):'w7-empty'}">${w?w+' kg':'—'}</td></tr>`}
+    document.getElementById('wc-week-table').innerHTML=`<table class="w7-table">${rows}</table>`;
+  }
+
+  /* ══ PRAYERS ══ */
+  async function fetchTimings(date=dateStr()){const[y,m,d]=date.split('-');const r=await fetch(`https://api.aladhan.com/v1/timings/${d}-${m}-${y}?latitude=${CFG.lat}&longitude=${CFG.lon}&method=${CFG.method}`);if(!r.ok)throw new Error('API');return(await r.json()).data}
+  async function loadPrayers(){
+    try{
+      const data=await fetchTimings();PRAYERS=data.timings;HIJRI_DATA=data.date.hijri;
+      document.getElementById('hdr-hijri').textContent=`${ordinal(parseInt(HIJRI_DATA.day,10))} ${HIJRI_DATA.month.en} ${HIJRI_DATA.year}`;
+      renderProgress();renderDayArch();
+    }catch{
+      PRAYERS={Fajr:'04:42',Dhuhr:'12:04',Asr:'15:27',Maghrib:'18:00',Isha:'19:18'};
+      document.getElementById('hdr-hijri').textContent='Offline';showToast('⚠ Using offline prayer times');
+    }
+  }
+
+  function derived(){if(!PRAYERS)return null;return{waterOpen:addMins(PRAYERS.Maghrib,120),pill1:PRAYERS.Maghrib,pill23:addMins(PRAYERS.Maghrib,30),pillNight:'23:30',pillSuhoor:addMins(PRAYERS.Fajr,-45)}}
+  function cupTimes(){const d=derived();if(!d)return[];return Array.from({length:CFG.waterCups},(_,i)=>addMins(d.waterOpen,i*50))}
+  function getMedTime(anchor){const d=derived();if(!d)return null;if(anchor==='maghrib')return PRAYERS.Maghrib;if(anchor==='maghrib+30')return addMins(PRAYERS.Maghrib,30);if(anchor==='fajr-45')return addMins(PRAYERS.Fajr,-45);if(anchor==='morning')return PRAYERS.Fajr;return anchor}
+
+  const PRAYER_DEF=[{key:'Fajr',icon:'🌙',label:'فجر'},{key:'Dhuhr',icon:'☀️',label:'ظهر'},{key:'Asr',icon:'🌤',label:'عصر'},{key:'Maghrib',icon:'🌅',label:'مغرب',note:'· إفطار'},{key:'Isha',icon:'🌙',label:'عشاء'}];
+
+  function renderPrayers(){
+    if(!PRAYERS)return;
+    const nM=nowMins(),nS=nowSecs();let nI=-1;
+    for(let i=0;i<PRAYER_DEF.length;i++){let d=toMins(PRAYERS[PRAYER_DEF[i].key])-nM;if(i===0&&d<-18*60)d+=1440;if(d>0){nI=i;break}}
+    let isT=false,cs='';
+    if(nI>=0){let d=toMins(PRAYERS[PRAYER_DEF[nI].key])*60-nS;if(d<0)d+=86400;cs=fmtSecs(d)}else{loadTomorrowFajr();const fT=TOMORROW_FAJR||PRAYERS.Fajr;let d=(toMins(fT)+1440)*60-nS;if(d>=86400)d-=86400;cs=fmtSecs(d);nI=0;isT=true}
+    document.getElementById('prayer-list').innerHTML=PRAYER_DEF.map((p,i)=>{
+      const t=PRAYERS[p.key],pm=toMins(t);let d=pm-nM;if(i===0&&!isT&&d<-18*60)d+=1440;
+      let cls='upcoming',badge='',tC='',nC='pr-name';
+      if(i===nI){cls='active';tC='t-next';nC='pr-name pr-name-next';badge=`<span class="pr-cdown">⏱ ${cs}</span>`}
+      else if(d<=0||(isT&&i!==nI)){cls='done';badge='<span class="pr-badge b-done">✓ صليت</span>';tC='t-done'}
+      const note=p.note?`<span style="font-size:10px;color:var(--text3);font-weight:400"> ${p.note}</span>`:'';
+      const tmrw=(isT&&i===0)?' <span style="font-size:9px;color:var(--text3)">· غداً</span>':'';
+      return`<div class="pr-row ${cls}"><div class="pr-icon">${p.icon}</div><div class="${nC}">${p.label}${note}${tmrw}</div><div class="pr-time ${tC}">${fmt12(t)}</div>${badge}</div>`
+    }).join('');
+  }
+
+  async function loadTomorrowFajr(){if(TOMORROW_FAJR)return;try{const data=await fetchTimings(dateStr(1));TOMORROW_FAJR=data.timings.Fajr;const s=document.getElementById('fajr-strip');if(s)s.style.display='flex';const f=document.getElementById('fajr-time');if(f)f.innerHTML=fmt12(TOMORROW_FAJR)}catch{}}
+
+  /* ══ PROGRESS ══ */
+  function renderProgress(){
+    const today=new Date();today.setHours(0,0,0,0);
+    const start=new Date(CFG.ramadanStart);start.setHours(0,0,0,0);
+    const C=2*Math.PI*44;
+    const hY=HIJRI_DATA?HIJRI_DATA.year:'1447',hM=HIJRI_DATA?HIJRI_DATA.month.en:'Ramadan',hD=HIJRI_DATA?parseInt(HIJRI_DATA.day,10):1,hMD=30;
+    document.getElementById('ram-arc').setAttribute('stroke-dasharray',`${(hD/hMD*C).toFixed(1)} ${C.toFixed(1)}`);
+    document.getElementById('ram-day').textContent=hD;document.getElementById('ram-of').textContent=`of ${hMD}`;
+    document.getElementById('ram-label').textContent=hM;
+    const ramLeft=hMD-hD;document.getElementById('ram-sub').textContent=ramLeft>0?`${ramLeft} days left`:'Last day 🌙';
+    const isRam=HIJRI_DATA?parseInt(HIJRI_DATA.month.number)===9:true;
+    const eidEl=document.getElementById('prog-eid');
+    if(isRam){const dL=CFG.totalDays-Math.min(Math.max(Math.floor((today-start)/864e5)+1,1),CFG.totalDays);eidEl.textContent=dL>0?`🎉 Eid in ${dL} day${dL!==1?'s':''}`:'Eid Mubarak! 🌙';eidEl.style.display=''}else eidEl.style.display='none';
+    const mD=today.getDate(),mT=getDaysInMonth(today),mL=mT-mD,mN=today.toLocaleDateString('en-US',{month:'long'});
+    document.getElementById('mon-arc').setAttribute('stroke-dasharray',`${(mD/mT*C).toFixed(1)} ${C.toFixed(1)}`);
+    document.getElementById('mon-day').textContent=mD;document.getElementById('mon-of').textContent=`of ${mT}`;
+    document.getElementById('mon-label').textContent=mN;document.getElementById('mon-sub').textContent=`${mL} days left`;
+  }
+
+  /* ══ BODY ══ */
+  const BODY_ITEMS=[{id:'cold',icon:'🚿',label:'Cold shower'},{id:'sun',icon:'☀️',label:'Sun · 20 min'},{id:'hair',icon:'💆',label:'Hair wash'},{id:'workout',icon:'💪',label:'Workout'},{id:'siwak',icon:'🪥',label:'Siwak'},{id:'walk1',icon:'🚶',label:'Walk 1 · 10 min'},{id:'walk2',icon:'🚶',label:'Walk 2 · 10 min'}];
+  function renderBody(){document.getElementById('body-grid').innerHTML=BODY_ITEMS.map(it=>{const d=!!ST.body[it.id];return`<div class="body-item ${d?'checked':''}" onclick="toggleBody('${it.id}')"><div class="bi-icon">${it.icon}</div><div class="bi-label">${it.label}</div><div class="bi-dot">${d?'✓':''}</div></div>`}).join('')}
+  async function toggleBody(id){ST.body[id]=!ST.body[id];renderBody();await saveState();showToast(ST.body[id]?'✓ Done':'Unmarked')}
+
+  /* ══ CUPS ══ */
+  function renderCups(){
+    const times=cupTimes();
+    document.getElementById('cups-row').innerHTML=Array.from({length:CFG.waterCups},(_,i)=>{
+      const f=ST.cups[i];const tL=times[i]?fmt12plain(times[i]):'';
+      return`<div class="cup ${f?'filled':''}" onclick="toggleCup(${i})" title="Cup ${i+1}${tL?' · '+tL:''}">${f?'💧':`<span>${i+1}</span>`}</div>`
+    }).join('');
+    const dr=ST.cups.filter(Boolean).length;const nI=ST.cups.findIndex(c=>!c);
+    const h=document.getElementById('cup-hint');
+    if(nI===-1){h.textContent='All 8 cups done · 4.0L ✓';h.style.color='var(--green)'}
+    else if(cupTimes()[nI]){h.innerHTML=`${dr} of 8 · ${(dr*.5).toFixed(1)}L &nbsp;·&nbsp; Next: Cup ${nI+1} at <strong>${fmt12plain(cupTimes()[nI])}</strong>`;h.style.color=''}
+    else{h.textContent=`${dr} of 8 cups tracked`;h.style.color=''}
+  }
+  async function toggleCup(i){ST.cups[i]=!ST.cups[i];renderCups();await saveState();showToast(ST.cups[i]?`💧 ${(ST.cups.filter(Boolean).length*.5).toFixed(1)}L done`:'Cup unchecked')}
+
+  /* ══ MEDICINE ══ */
+  function renderPills(){
+    const el=document.getElementById('pills-row');
+    el.innerHTML=ST.meds.map((m,i)=>{
+      const t=getMedTime(m.anchor);const tStr=t?fmt12(t):'—';
+      return`<div class="pill-item ${m.taken?'taken':''}" onclick="toggleMed(${i})"><div class="pi-icon">${m.type==='drops'?'💧':m.type==='packet'?'📦':'💊'}</div><div class="pi-info"><div class="pi-name">${m.name}${m.dose?' · '+m.dose:''}</div><div class="pi-meta">${tStr} · ${m.anchor}</div></div><div class="pi-badge ${m.taken?'taken-b':'untaken'}">${m.taken?'✓ أخذت':'اضغط'}</div><div class="pi-del" onclick="event.stopPropagation();removeMed(${i})">✕</div></div>`
+    }).join('');
+  }
+  async function toggleMed(i){ST.meds[i].taken=!ST.meds[i].taken;renderPills();await saveState();showToast(ST.meds[i].taken?'💊 تمت':'Unmarked')}
+  async function removeMed(i){if(!confirm(`Remove "${ST.meds[i].name}"?`))return;ST.meds.splice(i,1);renderPills();await saveState();showToast('Medicine removed')}
+
+  function openAddMed(){
+    document.getElementById('modal-root').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><h3>إضافة دواء</h3><label>الاسم</label><input id="mm-name" placeholder="e.g. Vitamin D"><label>النوع</label><select id="mm-type"><option value="pill">💊 قرص</option><option value="drops">💧 قطرات</option><option value="packet">📦 كيس</option><option value="injection">💉 حقنة</option></select><label>الجرعة</label><input id="mm-dose" placeholder="e.g. 500mg"><label>توقيت</label><select id="mm-anchor"><option value="morning">الفجر</option><option value="maghrib">المغرب</option><option value="maghrib+30">المغرب + 30 دقيقة</option><option value="fajr-45">الفجر - 45 دقيقة</option><option value="23:30">11:30 PM</option></select><div class="modal-btns"><button class="mm-cancel" onclick="closeModal()">إلغاء</button><button class="mm-save" onclick="saveMed()">إضافة</button></div></div></div>`
+  }
+  function closeModal(){document.getElementById('modal-root').innerHTML=''}
+  async function saveMed(){const name=document.getElementById('mm-name').value.trim();if(!name){showToast('أدخل اسم الدواء');return}const med={id:'med-'+Date.now(),name,type:document.getElementById('mm-type').value,dose:document.getElementById('mm-dose').value.trim(),anchor:document.getElementById('mm-anchor').value,taken:false};ST.meds.push(med);renderPills();await saveState();closeModal();showToast(`💊 ${name} added`)}
+
+  /* ══ WORK ══ */
+  function renderWork(){
+    ['growth','upwork'].forEach(type=>{
+      const c=ST[type].sessions;const log=ST[type].log||[];
+      const dc=type==='growth'?'done-g':'done-u';const tH=(c*170/60).toFixed(1);
+      const dE=document.getElementById(`${type}-dots`);
+      if(dE)dE.innerHTML=Array.from({length:c},(_,i)=>`<div class="sesh-dot ${dc}" title="Session ${i+1}" onclick="removeSession('${type}',${i})">🔥</div>`).join('')+`<div class="sesh-dot add" onclick="startSession('${type}')">+</div>`;
+      const tE=document.getElementById(`${type}-total`);
+      if(tE){const cc=type==='growth'?'c-g':'c-u';tE.innerHTML=c===0?'No sessions yet':`<span class="${cc}">${c} session${c!==1?'s':''}</span> · <span class="${cc}">${tH}h</span> deep work`}
+      const lE=document.getElementById(`${type}-log`);
+      if(lE)lE.innerHTML=log.slice(-4).reverse().map(e=>`<div class="wt-log-item"><span>▶ Started</span><span>${e.time}</span></div>`).join('');
+    });
+  }
+  async function removeSession(type,idx){if(ST[type].sessions<=0)return;ST[type].sessions--;ST[type].log.splice(idx,1);renderWork();await saveState();showToast('Session removed')}
+  async function startSession(type){const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});ST[type].sessions++;ST[type].log.push({time:t});renderWork();await saveState();showToast(`▶ ${type==='growth'?'Growth':'Upwork'} session started`)}
+  document.getElementById('growth-btn').addEventListener('click',()=>startSession('growth'));
+  document.getElementById('upwork-btn').addEventListener('click',()=>startSession('upwork'));
+
+  /* ══ GYM ══ */
+  const GYM_PLAN={
+    Mon:{label:'الاثنين · صدر + ترايسبس',exercises:[{name:'Bench Press',muscle:'Chest',sets:4,reps:'8-10'},{name:'Incline Dumbbell Press',muscle:'Upper Chest',sets:3,reps:'10-12'},{name:'Cable Fly',muscle:'Chest',sets:3,reps:'12-15'},{name:'Tricep Pushdown',muscle:'Triceps',sets:3,reps:'12-15'},{name:'Skull Crushers',muscle:'Triceps',sets:3,reps:'10-12'}]},
+    Tue:{label:'الثلاثاء · ظهر + بايسبس',exercises:[{name:'Pull-ups',muscle:'Back Width',sets:4,reps:'6-10'},{name:'Barbell Row',muscle:'Back Thickness',sets:4,reps:'8-10'},{name:'Lat Pulldown',muscle:'Lats',sets:3,reps:'10-12'},{name:'Barbell Curl',muscle:'Biceps',sets:3,reps:'10-12'},{name:'Hammer Curl',muscle:'Biceps',sets:3,reps:'12-15'}]},
+    Wed:{label:'الأربعاء · أرجل',exercises:[{name:'Squat',muscle:'Quads / Glutes',sets:4,reps:'8-10'},{name:'Romanian Deadlift',muscle:'Hamstrings',sets:3,reps:'10-12'},{name:'Leg Press',muscle:'Quads',sets:3,reps:'12-15'},{name:'Leg Curl',muscle:'Hamstrings',sets:3,reps:'12-15'},{name:'Calf Raises',muscle:'Calves',sets:4,reps:'15-20'}]},
+    Thu:{label:'الخميس · كتف + Core',exercises:[{name:'Overhead Press',muscle:'Shoulders',sets:4,reps:'8-10'},{name:'Lateral Raise',muscle:'Side Delt',sets:3,reps:'12-15'},{name:'Face Pull',muscle:'Rear Delt',sets:3,reps:'15-20'},{name:'Plank',muscle:'Core',sets:3,reps:'60s'},{name:'Cable Crunch',muscle:'Abs',sets:3,reps:'15-20'}]},
+    Fri:{label:'جمعة · REST',rest:true},
+    Sat:{label:'السبت · REST',rest:true},
+    Sun:{label:'الأحد · Full Body / Repeat',exercises:[{name:'Deadlift',muscle:'Full Body',sets:4,reps:'5-8'},{name:'Push-ups',muscle:'Chest',sets:3,reps:'20+'},{name:'Dumbbell Row',muscle:'Back',sets:3,reps:'12'},{name:'Dips',muscle:'Triceps',sets:3,reps:'10-15'}]},
+  };
+  const DAYS_ORDER=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let selectedGymDay=null;
+
+  function getTodayGymKey(){const d=new Date(TODAY+'T12:00:00');return['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]}
+
+  function renderGym(){
+    if(!selectedGymDay)selectedGymDay=getTodayGymKey();
+    document.getElementById('gym-day-strip').innerHTML=DAYS_ORDER.map(dk=>{
+      const plan=GYM_PLAN[dk];const isT=dk===getTodayGymKey();const isSel=dk===selectedGymDay;
+      return`<div class="gym-day ${isSel?'active':''} ${plan.rest?'rest':''}" onclick="selectGymDay('${dk}')">${isT?'⭐ ':''}<div style="font-size:11px;font-weight:700">${dk}</div></div>`
+    }).join('');
+    const plan=GYM_PLAN[selectedGymDay];
+    if(plan.rest){
+      document.getElementById('gym-content').innerHTML=`<div class="gym-rest-card"><div class="gym-rest-emoji">😴</div><div class="gym-rest-title">Rest Day</div><div class="gym-rest-sub">استرح كويس، جسمك بيتعمر دلوقتي 💪</div></div>`;return;
+    }
+    const sets=ST.gym.sets||{};
+    document.getElementById('gym-content').innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--gold2);margin-bottom:12px">${plan.label}</div>`+plan.exercises.map((ex,ei)=>{
+      const exKey=`${selectedGymDay}_${ei}`;
+      let setsHTML='';
+      for(let si=0;si<ex.sets;si++){
+        const sk=`${exKey}_s${si}`;const done=!!(sets[sk]&&sets[sk].done);
+        setsHTML+=`<div class="gym-set-row"><div class="gym-set-label">Set ${si+1}</div><input class="gym-set-input" id="${sk}_w" type="number" placeholder="kg" value="${sets[sk]?.weight||''}" onchange="updateGymSet('${sk}','weight',this.value)"><div class="gym-set-x">×</div><input class="gym-set-input" id="${sk}_r" type="number" placeholder="${ex.reps}" value="${sets[sk]?.reps||''}" onchange="updateGymSet('${sk}','reps',this.value)"><div class="gym-set-done ${done?'done':''}" onclick="toggleGymSet('${sk}')">${done?'✓':'○'}</div></div>`
+      }
+      return`<div class="gym-exercise"><div class="gym-ex-header"><div class="gym-ex-name">${ex.name}</div><div class="gym-ex-muscle">${ex.muscle}</div></div><div class="gym-sets">${setsHTML}</div></div>`
+    }).join('')+`<button class="gym-complete-btn" onclick="completeWorkout()">✅ Workout Complete!</button>`;
+  }
+  function selectGymDay(dk){selectedGymDay=dk;renderGym()}
+  async function updateGymSet(sk,field,val){if(!ST.gym.sets)ST.gym.sets={};if(!ST.gym.sets[sk])ST.gym.sets[sk]={};ST.gym.sets[sk][field]=val;await saveState()}
+  async function toggleGymSet(sk){if(!ST.gym.sets)ST.gym.sets={};if(!ST.gym.sets[sk])ST.gym.sets[sk]={};ST.gym.sets[sk].done=!ST.gym.sets[sk].done;renderGym();await saveState()}
+  async function completeWorkout(){ST.body.workout=true;renderBody();await saveState();showToast('💪 Workout done! خلاص يا بطل!')}
+
+  /* ══ NUTRITION ══ */
+  const MEALS_PLAN=[
+    {id:'suhoor',icon:'🌙',name:'سحور',time:'Fajr - 30min',kcal:400,p:35,c:40,f:12},
+    {id:'iftar',icon:'🌅',name:'إفطار',time:'Maghrib',kcal:450,p:40,c:45,f:15},
+    {id:'meal3',icon:'🍽️',name:'وجبة 3',time:'Maghrib + 2h',kcal:450,p:45,c:40,f:12},
+    {id:'meal4',icon:'🥩',name:'وجبة 4',time:'Isha + 1h',kcal:385,p:40,c:30,f:13},
+    {id:'meal5',icon:'🥛',name:'وجبة 5',time:'23:00',kcal:250,p:36,c:10,f:8},
+  ];
+  const MACRO_TARGETS={kcal:1935,p:196,c:165,f:60};
+
+  function renderNutrition(){
+    const logged=ST.nutrition?.meals||{};
+    let totKcal=0,totP=0,totC=0,totF=0;
+    MEALS_PLAN.forEach(m=>{if(logged[m.id]){totKcal+=m.kcal;totP+=m.p;totC+=m.c;totF+=m.f}});
+    // kcal ring
+    const C=2*Math.PI*48;const kpct=Math.min(totKcal/MACRO_TARGETS.kcal,1);
+    document.getElementById('kcal-arc').setAttribute('stroke-dasharray',`${(kpct*C).toFixed(1)} ${C.toFixed(1)}`);
+    document.getElementById('kcal-num').textContent=totKcal;
+    // macro strip
+    const macros=[{label:'Protein',val:totP,target:MACRO_TARGETS.p,unit:'g',color:'#60a5fa'},{label:'Carbs',val:totC,target:MACRO_TARGETS.c,unit:'g',color:'#34d399'},{label:'Fats',val:totF,target:MACRO_TARGETS.f,unit:'g',color:'#f59e0b'},{label:'Kcal',val:totKcal,target:MACRO_TARGETS.kcal,unit:'',color:'#c9a84c'}];
+    document.getElementById('macro-strip').innerHTML=macros.map(m=>{const pct=Math.min(m.val/m.target,1)*100;return`<div class="macro-item"><div class="macro-val" style="color:${m.color}">${m.val}<span style="font-size:10px;font-weight:600;color:var(--text2)">${m.unit}</span></div><div class="macro-target">/ ${m.target}${m.unit}</div><div class="macro-bar-wrap"><div class="macro-bar-fill" style="width:${pct}%;background:${m.color}"></div></div><div class="macro-label">${m.label}</div></div>`}).join('');
+    // meals
+    document.getElementById('meal-list').innerHTML=MEALS_PLAN.map(m=>{const done=!!logged[m.id];return`<div class="meal-item ${done?'logged':''}" onclick="toggleMeal('${m.id}')"><div class="meal-icon">${m.icon}</div><div class="meal-info"><div class="meal-name">${m.name}</div><div class="meal-macros">${m.kcal} kcal · ${m.p}g P · ${m.c}g C · ${m.f}g F · ${m.time}</div></div><div class="meal-dot">${done?'✓':''}</div></div>`}).join('');
+  }
+  async function toggleMeal(id){if(!ST.nutrition)ST.nutrition={meals:{}};if(!ST.nutrition.meals)ST.nutrition.meals={};ST.nutrition.meals[id]=!ST.nutrition.meals[id];renderNutrition();await saveState();showToast(ST.nutrition.meals[id]?'🥗 Meal logged':'Unlogged')}
+
+  /* ══ FINANCE ══ */
+  let activeCurrency='EGP';let activeFinTab='all';
+  const CURRENCY_SYMBOLS={EGP:'ج.م',USD:'$',SAR:'ر.س'};
+  const FIN_CATS_EXPENSE=['🍽️ طعام','🚗 مواصلات','🏠 إيجار','💊 صحة','🛍️ تسوق','📱 تليفون','🎮 ترفيه','📚 تعليم','💰 استثمار','💸 أخرى'];
+  const FIN_CATS_INCOME=['💼 شغل','💻 فريلانس','🎁 هدية','📈 استثمار','💵 أخرى'];
+
+  function getFinTotals(cur){
+    const items=(ST.finance?.items||[]).filter(i=>i.currency===cur);
+    const income=items.filter(i=>i.type==='income').reduce((s,i)=>s+i.amount,0);
+    const expense=items.filter(i=>i.type==='expense').reduce((s,i)=>s+i.amount,0);
+    return{income,expense,balance:income-expense};
+  }
+
+  function renderFinance(){
+    const sym=CURRENCY_SYMBOLS[activeCurrency];
+    const t=getFinTotals(activeCurrency);
+    document.getElementById('fin-summary').innerHTML=`
+    <div class="fin-stat"><div class="fin-stat-label">دخل</div><div class="fin-stat-val" style="color:var(--green)">${sym} ${t.income.toLocaleString()}</div></div>
+    <div class="fin-stat"><div class="fin-stat-label">مصروف</div><div class="fin-stat-val" style="color:var(--red)">${sym} ${t.expense.toLocaleString()}</div></div>
+    <div class="fin-stat"><div class="fin-stat-label">رصيد</div><div class="fin-stat-val" style="color:${t.balance>=0?'var(--green)':'var(--red)'}">${sym} ${t.balance.toLocaleString()}</div></div>`;
+    // all currencies balance
+    let balHTML='<div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:6px">All Currencies Balance</div>';
+    ['EGP','USD','SAR'].forEach(c=>{const bt=getFinTotals(c);const s=CURRENCY_SYMBOLS[c];const cls=bt.balance>0?'pos':bt.balance<0?'neg':'zero';balHTML+=`<div class="fin-balance-row"><div class="fin-currency-balance">${c}</div><div class="fin-balance-val ${cls}">${s} ${bt.balance.toLocaleString()}</div></div>`});
+    document.getElementById('fin-balance').innerHTML=balHTML;
+    // list
+    const items=(ST.finance?.items||[]).filter(i=>{if(activeFinTab==='all')return true;return i.type===activeFinTab;}).filter(i=>i.currency===activeCurrency);
+    document.getElementById('fin-list').innerHTML=items.length?items.map((item,idx)=>{
+      const sym2=CURRENCY_SYMBOLS[item.currency]||item.currency;
+      return`<div class="fin-item"><div class="fin-item-cat">${item.category.split(' ')[0]}</div><div class="fin-item-info"><div class="fin-item-desc">${item.desc}</div><div class="fin-item-meta">${item.category} · ${item.date}</div></div><div class="fin-item-amount ${item.type}">${item.type==='expense'?'-':'+'}${sym2} ${item.amount.toLocaleString()}</div><div class="fin-item-del" onclick="removeFinItem(${idx})">✕</div></div>`
+    }).join(''):`<div style="text-align:center;padding:20px;font-size:12px;color:var(--text3)">لا يوجد سجلات بعد</div>`;
+  }
+
+  function switchCurrency(cur){activeCurrency=cur;document.querySelectorAll('.currency-badge').forEach(b=>{b.classList.toggle('active',b.dataset.cur===cur)});renderFinance()}
+  function switchFinTab(tab){activeFinTab=tab;document.querySelectorAll('.fin-tab').forEach(b=>{b.classList.toggle('active',b.dataset.type===tab)});renderFinance()}
+
+  function openAddFin(type){
+    const cats=type==='expense'?FIN_CATS_EXPENSE:FIN_CATS_INCOME;
+    document.getElementById('modal-root').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><h3>${type==='expense'?'إضافة مصروف':'إضافة دخل'}</h3><label>الوصف</label><input id="fin-desc" placeholder="مثال: أكل يوم الجمعة"><label>المبلغ</label><input id="fin-amount" type="number" placeholder="0.00"><label>العملة</label><select id="fin-cur"><option value="EGP" ${activeCurrency==='EGP'?'selected':''}>🇪🇬 EGP جنيه</option><option value="USD" ${activeCurrency==='USD'?'selected':''}>🇺🇸 USD دولار</option><option value="SAR" ${activeCurrency==='SAR'?'selected':''}>🇸🇦 SAR ريال</option></select><label>التصنيف</label><select id="fin-cat">${cats.map(c=>`<option>${c}</option>`).join('')}</select><div class="modal-btns"><button class="mm-cancel" onclick="closeModal()">إلغاء</button><button class="mm-save" onclick="saveFinItem('${type}')">إضافة</button></div></div></div>`
+  }
+  async function saveFinItem(type){
+    const desc=document.getElementById('fin-desc').value.trim();
+    const amount=parseFloat(document.getElementById('fin-amount').value);
+    if(!desc||isNaN(amount)||amount<=0){showToast('أدخل بيانات صحيحة');return}
+    const cur=document.getElementById('fin-cur').value;
+    const cat=document.getElementById('fin-cat').value;
+    if(!ST.finance)ST.finance={items:[]};
+    ST.finance.items.unshift({type,desc,amount,currency:cur,category:cat,date:TODAY});
+    renderFinance();await saveState();closeModal();showToast(`${type==='expense'?'💸':'💰'} ${desc} saved`);
+  }
+  async function removeFinItem(realIdx){
+    const items=(ST.finance?.items||[]);let counter=0;
+    const allItems=items.filter(i=>{if(i.currency!==activeCurrency)return true;if(activeFinTab!=='all'&&i.type!==activeFinTab)return true;if(counter===realIdx){counter++;return false}counter++;return true});
+    // simpler: just splice from full array by finding displayed items
+    const displayed=(ST.finance?.items||[]).filter(i=>{if(activeFinTab==='all')return true;return i.type===activeFinTab}).filter(i=>i.currency===activeCurrency);
+    const target=displayed[realIdx];if(!target)return;
+    const idx=ST.finance.items.indexOf(target);if(idx!==-1)ST.finance.items.splice(idx,1);
+    renderFinance();await saveState();showToast('Deleted');
+  }
+
+  /* ══ WEEK SECTION ══ */
+  let weekOff=0,selDay=null;
+  async function loadDayState(dk){if(DAY_CACHE[dk]!==undefined)return DAY_CACHE[dk];try{const doc=await dayRef(dk).get();const s=fsToState(doc);DAY_CACHE[dk]=s;return s}catch{DAY_CACHE[dk]=null;return null}}
+  async function prefetchWeek(days){const missing=days.filter(d=>DAY_CACHE[d]===undefined);if(!missing.length)return;await Promise.all(missing.map(d=>loadDayState(d)))}
+  function getWeekBounds(off=0){const ref=new Date(TODAY+'T12:00:00');ref.setDate(ref.getDate()+(off*7));const dow=ref.getDay();const mon=new Date(ref);mon.setDate(ref.getDate()-((dow+6)%7));const days=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push(d.toISOString().slice(0,10))}return{days,monStr:days[0],sunStr:days[6]}}
+
+  async function renderWeekSection(){
+    const wk=getWeekBounds(weekOff);const td=new Date(TODAY+'T12:00:00');
+    const prefetchDays=[...wk.days];for(let i=1;i<=7;i++)prefetchDays.push(dateStr(-i));
+    await prefetchWeek(prefetchDays);
+    document.getElementById('week-nav').innerHTML=`<button class="week-nav-btn" onclick="changeWeek(-1)">‹</button><div class="week-nav-label">${shortDate(wk.monStr)} — ${shortDate(wk.sunStr)}</div><button class="week-nav-btn" onclick="changeWeek(1)" ${weekOff>=0?'disabled':''}>›</button>`;
+    document.getElementById('week-strip').innerHTML=wk.days.map(d=>{const dd=new Date(d+'T12:00:00');const isFut=dd>td;const isT=d===TODAY;const st=DAY_CACHE[d];const sc=st?calcScores(st):null;const pct=sc?sc.overall:0;const bc=pct>=70?'#34d399':pct>=40?'#c9a84c':'#f87171';const sel=selDay===d;return`<div class="ws-day ${isT?'today':''} ${sel?'selected':''} ${isFut?'future':''}" onclick="${isFut?'':`selectDay('${d}')`}"><div class="ws-day-name">${shortDay(d)}</div><div class="ws-day-num">${new Date(d+'T12:00:00').getDate()}</div><div class="ws-day-bar"><div class="ws-day-bar-fill" style="width:${isFut?0:pct}%;background:${bc}"></div></div><div class="ws-day-pct" style="color:${isFut?'var(--text3)':bc}">${isFut?'—':pct+'%'}</div></div>`}).join('');
+    renderDayDetail();renderWeekTable();renderWeight();
+  }
+  async function changeWeek(dir){weekOff+=dir;if(weekOff>0)weekOff=0;selDay=null;await renderWeekSection()}
+  async function selectDay(d){selDay=selDay===d?null:d;await renderWeekSection()}
+  function renderDayDetail(){
+    const c=document.getElementById('day-detail-container');if(!selDay){c.innerHTML='';return}
+    const st=DAY_CACHE[selDay];if(!st){c.innerHTML=`<div class="day-detail"><div class="dd-header"><span>${shortDate(selDay)} — No data</span><span class="dd-close" onclick="selectDay('${selDay}')">✕</span></div></div>`;return}
+    const sc=calcScores(st);const w=getWeight(selDay);const bd=BODY_ITEMS.filter(it=>st.body&&st.body[it.id]).length;const cd=(st.cups||[]).filter(Boolean).length;const meds=st.meds||[];const md=meds.filter(m=>m.taken).length;const gS=st.growth?st.growth.sessions:0,uS=st.upwork?st.upwork.sessions:0;
+    c.innerHTML=`<div class="day-detail"><div class="dd-header"><span>📊 ${shortDate(selDay)} · Overall ${sc.overall}%</span><span class="dd-close" onclick="selectDay('${selDay}')">✕</span></div><div class="dd-grid"><div class="dd-item"><div class="dd-item-label">Health</div><div class="dd-item-val" style="color:var(--green)">${bd}/7 · ${sc.health}%</div></div><div class="dd-item"><div class="dd-item-label">Water</div><div class="dd-item-val" style="color:var(--blue)">${cd}/8 · ${sc.water}%</div></div><div class="dd-item"><div class="dd-item-label">Medicine</div><div class="dd-item-val" style="color:var(--purple)">${md}/${meds.length} · ${sc.medicine}%</div></div><div class="dd-item"><div class="dd-item-label">Work</div><div class="dd-item-val" style="color:var(--gold2)">${gS}G + ${uS}U · ${sc.work}%</div></div><div class="dd-item"><div class="dd-item-label">Weight</div><div class="dd-item-val">${w?w+' kg':'—'}</div></div><div class="dd-item"><div class="dd-item-label">Deep Hours</div><div class="dd-item-val">${((gS+uS)*170/60).toFixed(1)}h</div></div></div></div>`;
+  }
+  function renderWeekTable(){
+    const wk=getWeekBounds(weekOff);const refDate=new Date(wk.monStr+'T12:00:00');const yr=refDate.getFullYear(),mo=refDate.getMonth();const mName=refDate.toLocaleDateString('en-US',{month:'long'});const lastD=new Date(yr,mo+1,0).getDate();const todayD=new Date(TODAY+'T12:00:00');const weeks=[];for(let s=1;s<=lastD;s+=7){const e=Math.min(s+6,lastD);const days=[];for(let d=s;d<=e;d++)days.push(`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`);weeks.push({label:`${mName.slice(0,3)} ${s}–${e}`,days})}
+    let html=`<thead><tr><th style="text-align:right">${mName}</th><th>Health</th><th>Water</th><th>Work</th><th>Wt Δ</th><th>Hrs</th></tr></thead><tbody>`;
+    weeks.forEach(w=>{const past=w.days.filter(d=>new Date(d+'T12:00:00')<=todayD);const isCur=past.length>0&&past.length<w.days.length;if(past.length===0){html+=`<tr><td class="wt-label-cell">${w.label}</td><td class="wt-empty">—</td><td class="wt-empty">—</td><td class="wt-empty">—</td><td class="wt-empty">—</td><td class="wt-empty">—</td></tr>`;return}let hS=0,wS=0,wkS=0,cnt=0,tS=0,fW=null,lW=null;past.forEach(d=>{const st=DAY_CACHE[d];if(st){const sc=calcScores(st);hS+=sc.health;wS+=sc.water;wkS+=sc.work;cnt++;tS+=(st.growth?st.growth.sessions:0)+(st.upwork?st.upwork.sessions:0)}const wt=getWeight(d);if(wt){if(!fW)fW=wt;lW=wt}});const aH=cnt?Math.round(hS/cnt):0,aW=cnt?Math.round(wS/cnt):0,aWk=cnt?Math.round(wkS/cnt):0;const wd=(fW&&lW)?(lW-fW).toFixed(1):null;const dH=(tS*170/60).toFixed(1);const pc=v=>v>=70?'wt-pct-good':v>=40?'wt-pct-ok':'wt-pct-bad';html+=`<tr class="${isCur?'wt-current':''}"><td class="wt-label-cell">${w.label}</td><td class="${pc(aH)}">${aH}%</td><td class="${pc(aW)}">${aW}%</td><td class="${pc(aWk)}">${aWk}%</td><td style="color:${wd&&wd<0?'var(--green)':wd>0?'var(--red)':'var(--text2)'}">${wd?(wd>0?'+':'')+wd+'kg':'—'}</td><td>${dH}h</td></tr>`});
+    html+='</tbody>';document.getElementById('week-table').innerHTML=html;
+    document.getElementById('month-grid-container').innerHTML=`<button class="view-month-btn" onclick="toggleMonthGrid()">📊 عرض الشهر كامل</button><div id="month-grid" style="display:none"></div>`;
+  }
+  function toggleMonthGrid(){const g=document.getElementById('month-grid');if(g.style.display==='none'){g.style.display='block';renderMonthGrid()}else g.style.display='none'}
+  function renderMonthGrid(){
+    const wk=getWeekBounds(weekOff);const refDate=new Date(wk.monStr+'T12:00:00');const yr=refDate.getFullYear(),mo=refDate.getMonth();const lastD=new Date(yr,mo+1,0).getDate();const todayD=new Date(TODAY+'T12:00:00');
+    let h=`<div class="month-list">`;
+    for(let d=1;d<=lastD;d++){const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const dd=new Date(ds+'T12:00:00');const isFut=dd>todayD;const st=DAY_CACHE[ds];const sc=st?calcScores(st):null;const pct=sc?sc.overall:0;const bc=isFut?'var(--border2)':pct>=70?'var(--green)':pct>=40?'var(--gold2)':'var(--red)';h+=`<div class="ml-row"><div class="ml-day">${shortDay(ds)} ${d}</div><div class="ml-bar"><div class="ml-bar-fill" style="width:${isFut?0:pct}%;background:${bc}"></div></div><div class="ml-pct" style="color:${isFut?'var(--text3)':bc}">${isFut?'—':pct+'%'}</div></div>`}
+    h+='</div>';document.getElementById('month-grid').innerHTML=h;
+  }
+
+  /* ══ DAY ARCHITECTURE ══ */
+  function renderDayArch(){
+    const el=document.getElementById('day-arch');const p=PRAYERS||{Fajr:'04:42',Dhuhr:'12:04',Asr:'15:27',Maghrib:'18:00',Isha:'19:18'};
+    const fM=toMins(p.Fajr),dhM=toMins(p.Dhuhr),asM=toMins(p.Asr),mgM=toMins(p.Maghrib),isM=toMins(p.Isha);
+    const napEnd=mgM+90;const waterStart=mgM+120;const suhoorStart=Math.max(0,fM-90);
+    const pct=m=>`${((Math.max(0,Math.min(1440,m))/1440)*100).toFixed(2)}%`;
+    const blocks=[{from:0,to:suhoorStart,label:'⚡ WORK',cls:'t-work'},{from:suhoorStart,to:fM,label:'⚡ WORK',cls:'t-work'},{from:fM,to:dhM,label:'😴 SLEEP',cls:'t-sleep'},{from:dhM,to:mgM,label:'⚡ WORK',cls:'t-work'},{from:mgM,to:napEnd,label:'😴 NAP',cls:'t-sleep'},{from:napEnd,to:1440,label:'⚡ WORK',cls:'t-work'}].filter(b=>b.to>b.from);
+    const bHTML=blocks.map(b=>`<div class="t-block ${b.cls}" style="left:${pct(b.from)};width:${pct(b.to-b.from)}">${b.label}</div>`).join('');
+    const markers=[{mins:fM,icon:'🕌',label:'فجر',time:p.Fajr.split(' ')[0],color:'#c9a84c'},{mins:dhM,icon:'🕌',label:'ظهر',time:p.Dhuhr.split(' ')[0],color:'#c9a84c'},{mins:asM,icon:'🕌',label:'عصر',time:p.Asr.split(' ')[0],color:'#c9a84c'},{mins:mgM,icon:'🌙',label:'إفطار',time:p.Maghrib.split(' ')[0],color:'#34d399'},{mins:isM,icon:'🕌',label:'عشاء',time:p.Isha.split(' ')[0],color:'#c9a84c'}];
+    const mHTML=markers.map(m=>`<div class="pm-item" style="left:${pct(m.mins)}"><div class="pm-line" style="background:${m.color}"></div><div class="pm-icon">${m.icon}</div><div class="pm-label" style="color:${m.color}">${m.label}</div><div class="pm-time">${m.time}</div></div>`).join('');
+    const hrs=[0,3,6,9,12,15,18,21,24];const hAx=hrs.map(h=>`<span>${h===0?'12a':h===12?'12p':h>12?`${h-12}p`:`${h}a`}</span>`).join('');
+    const sleepH=((dhM-fM)/60+1.5).toFixed(1);const workH=(24-parseFloat(sleepH)).toFixed(1);const waterH=(((1440-waterStart)+suhoorStart)/60).toFixed(1);
+    el.innerHTML=`<div class="arch-context">24-hour view · midnight → midnight · Cairo</div><div class="timeline-outer">${bHTML}</div><div class="hour-axis">${hAx}</div><div class="prayer-marker-row">${mHTML}</div><div class="arch-stats"><div class="ss-item"><div class="ss-val">${sleepH}h</div><div class="ss-lbl">😴 Sleep</div></div><div class="ss-item"><div class="ss-val">${workH}h</div><div class="ss-lbl">⚡ Work</div></div><div class="ss-item"><div class="ss-val">${waterH}h</div><div class="ss-lbl">💧 Water</div></div></div><div class="arch-legend"><div class="arch-legend-item"><div class="leg-dot" style="background:#2a1a5e"></div><span>😴 Sleep</span></div><div class="arch-legend-item"><div class="leg-dot" style="background:#1a2a1a"></div><span>⚡ Work</span></div></div>`;
+  }
+
+  /* ══ QUOTES ══ */
+  const STATIC_QUOTES=[
+    {html:'<strong>The goal is not to be perfect by the end.</strong> The goal is to be better today than you were yesterday.',tags:['Growth','Daily']},
+    {html:'<strong>مش المهم تبدأ من الأول.</strong> المهم تكمل من حيث وقفت.',tags:['إصرار','عربي']},
+    {html:'<strong>You don\'t rise to the level of your goals.</strong> You fall to the level of your systems.',tags:['Systems','James Clear']},
+    {html:'<strong>كل خطوة صغيرة في الاتجاه الصح</strong> أحسن من ألف خطوة في الاتجاه الغلط.',tags:['استراتيجية','عربي']},
+    {html:'<strong>Discipline is doing what needs to be done</strong> even when you don\'t feel like doing it.',tags:['Discipline']},
+    {html:'<strong>الوقت اللي بتضيعه في القلق</strong> ممكن تستخدمه في العمل.',tags:['وقت','عربي']},
+    {html:'<strong>Small daily improvements</strong> are the key to staggering long-term results.',tags:['Consistency','Daily']},
+    {html:'<strong>ما تقيس عليه بيتحسن.</strong> ابدأ تعدّ إيه اللي مهم ليك.',tags:['قياس','عربي']},
+  ];
+  let quoteIdx=0;
+  function renderQuote(){
+    const q=STATIC_QUOTES[quoteIdx%STATIC_QUOTES.length];
+    document.getElementById('qtext').innerHTML=q.html;
+    document.getElementById('qnum').textContent=`${quoteIdx+1} / ${STATIC_QUOTES.length}`;
+    document.getElementById('qtags').innerHTML=q.tags.map(t=>`<span class="qtag">${t}</span>`).join('');
+  }
+  function prevQuote(){quoteIdx=(quoteIdx-1+STATIC_QUOTES.length)%STATIC_QUOTES.length;renderQuote()}
+  function nextQuote(){quoteIdx=(quoteIdx+1)%STATIC_QUOTES.length;renderQuote()}
+
+  /* ══ HEADER ══ */
+  function renderHeader(){
+    const d=new Date();
+    document.getElementById('hdr-date').textContent=d.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  }
+
+  /* ══ NAV ══ */
+  function switchPage(pageId){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById('page-'+pageId).classList.add('active');
+    document.querySelector(`[data-page="${pageId}"]`).classList.add('active');
+    if(pageId==='week')renderWeekSection();
+    if(pageId==='gym')renderGym();
+    if(pageId==='nutrition')renderNutrition();
+    if(pageId==='finance')renderFinance();
+    if(pageId==='prayers')renderPrayers();
+  }
+
+  /* ══ RENDER ALL ══ */
+  function renderAll(){
+    renderScoreStrip();renderWeight();renderBody();renderCups();renderPills();renderWork();renderProgress();renderQuote();renderNutrition();renderFinance();renderGym();
+  }
+
+  /* ══ TOAST ══ */
+  let toastTimer;
+  function showToast(msg){const t=document.getElementById('toast');t.innerHTML=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2200)}
+
+  /* ══ INTERVALS ══ */
+  setInterval(()=>renderPrayers(),1000);
+  setInterval(()=>{renderCups();renderPills()},30000);
+
+  /* ══ INIT ══ */
+  async function init(){
+    showLoader();
+    refreshToday();
+    ST=await loadTodayFromFs();
+    DAY_CACHE[TODAY]=ST;
+    renderHeader();
+    renderAll();
+    await renderWeekSection();
+    await loadPrayers();
+    renderPrayers();renderCups();renderPills();renderProgress();renderDayArch();
+    loadTomorrowFajr();
+    subscribeToday();
+    hideLoader();
+  }
+
+  /* ══ AUTH ══ */
+  function showStatus(msg,type){const el=document.getElementById('login-status');el.textContent=msg;el.className='login-status '+type}
+  function setBtnLoading(loading){const btn=document.getElementById('btn-google');const text=document.getElementById('btn-text');btn.disabled=loading;if(loading){text.textContent='جاري الدخول...';btn.insertAdjacentHTML('afterbegin','<div class="spinner"></div>')}else{text.textContent='الدخول بحساب Google';const s=btn.querySelector('.spinner');if(s)s.remove()}}
+
+  async function signInWithGoogle(){
+    setBtnLoading(true);showStatus('جاري الاتصال بـ Google...','load');
+    try{
+      const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({prompt:'select_account'});
+      const result=await auth.signInWithPopup(provider);
+      const user=result.user;
+      if(user.uid!==ALLOWED_UID&&ALLOWED_UID!=='GbKhHRzKtQWvx1fOikF8AZD23XX2'){await auth.signOut();setBtnLoading(false);showStatus('⚠ مش مسموح بالدخول','err');return}
+      await db.collection('users').doc(user.uid).set({name:user.displayName,email:user.email,avatar:user.photoURL,uid:user.uid,lastLogin:firebase.firestore.FieldValue.serverTimestamp(),createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+      showStatus('✓ تم الدخول بنجاح!','ok');setTimeout(()=>showApp(user),800);
+    }catch(err){setBtnLoading(false);console.error(err);const msgs={'auth/popup-closed-by-user':'أغلقت النافذة، حاول تاني.','auth/popup-blocked':'المتصفح أوقف النافذة.','auth/network-request-failed':'مشكلة في الإنترنت.'};showStatus(msgs[err.code]||'حصل خطأ، حاول تاني.','err')}
+  }
+
+  function showApp(user){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('user-avatar').src=user.photoURL||'';
+    document.getElementById('user-name').textContent=user.displayName?.split(' ')[0]||'Islam';
+    CURRENT_UID=user.uid;
+    init();
+  }
+
+  async function doSignOut(){await auth.signOut()}
+
+  showLoader();
+  auth.onAuthStateChanged(user=>{
+    if(user){
+      if(user.uid!==ALLOWED_UID&&ALLOWED_UID!=='GbKhHRzKtQWvx1fOikF8AZD23XX2'){
+        auth.signOut();
+        document.getElementById('login-screen').style.display='flex';
+        document.getElementById('app').style.display='none';
+        document.getElementById('login-error').style.display='block';
+        hideLoader();return;
+      }
+      showApp(user);
+    }else{
+      document.getElementById('login-screen').style.display='flex';
+      document.getElementById('app').style.display='none';
+      hideLoader();
+    }
+  });
 </script>
 </body>
 </html>
