@@ -148,6 +148,7 @@ interface FinancialEntry {
   date: string;
   accountId: string;
   createdAt: Timestamp | null;
+  status?: 'COMPLETED' | 'PENDING';
 }
 
 interface AccountSnapshot {
@@ -971,26 +972,26 @@ const DashboardView = ({ userId, isArabic, setMode }: { userId: string, isArabic
                 <div className="divide-y divide-outline-variant/5 max-h-72 overflow-y-auto custom-scrollbar">
                   {financialEntries.map(entry => {
                     const isExpense = entry.type === 'Expense' || entry.type === 'Debt (Owed To Someone)';
-                    const isExpected = entry.type === 'Expected';
+                    const isExpected = entry.type === 'Expected' || entry.status === 'PENDING';
                     const isDebtMe = entry.type === 'Debt (Owed To Me)';
                     return (
                       <div key={entry.id} className="p-4 flex items-center justify-between hover:bg-surface-variant/20 transition-all">
                         <div className="flex items-center gap-3 overflow-hidden">
                           <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
+                            isExpected ? 'bg-amber-400/10 text-amber-400' :
                             isExpense ? 'bg-red-400/10 text-red-400' :
-                              isExpected ? 'bg-amber-400/10 text-amber-400' :
                                 isDebtMe ? 'bg-indigo-400/10 text-indigo-400' :
                                   'bg-emerald-400/10 text-emerald-400'
                           )}>
-                            {isExpense ? <ShieldAlert size={16} /> : isExpected ? <Clock size={16} /> : isDebtMe ? <UserIcon size={16} /> : <Zap size={16} />}
+                            {isExpected ? <Clock size={16} /> : isExpense ? <ShieldAlert size={16} /> : isDebtMe ? <UserIcon size={16} /> : <Zap size={16} />}
                           </div>
                           <div className="overflow-hidden">
                             <p className="text-sm font-bold truncate">{entry.source}</p>
-                            <p className="text-[8px] uppercase tracking-widest opacity-30 font-black">{isArabic ? (isExpense ? 'مصروف' : isExpected ? 'متوقع' : isDebtMe ? 'دين لي' : 'دخل') : entry.type}</p>
+                            <p className="text-[8px] uppercase tracking-widest opacity-30 font-black">{isArabic ? (isExpected ? 'مُعلّق' : isExpense ? 'مصروف' : isDebtMe ? 'دين لي' : 'دخل') : (isExpected ? 'PENDING' : entry.type)}</p>
                           </div>
                         </div>
                         <span className={cn("text-base font-headline font-black flex-shrink-0",
-                          isExpense ? 'text-red-400' : isExpected ? 'text-amber-400' : isDebtMe ? 'text-indigo-400' : 'text-emerald-400'
+                          isExpected ? 'text-amber-400' : isExpense ? 'text-red-400' : isDebtMe ? 'text-indigo-400' : 'text-emerald-400'
                         )}>
                           {isExpense ? '-' : '+'}{entry.amount.toLocaleString()}
                         </span>
@@ -1342,9 +1343,35 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
   useEffect(() => {
     // Listen to Financial Entries
     const qEntries = query(collection(db, `users/${userId}/financial`), orderBy('createdAt', 'desc'));
-    const unsubEntries = onSnapshot(qEntries, (snap) => {
-      setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as FinancialEntry)));
+    const unsubEntries = onSnapshot(qEntries, async (snap) => {
+      const fetchedEntries = snap.docs.map(d => ({ id: d.id, ...d.data() } as FinancialEntry));
+      setEntries(fetchedEntries);
       setLoading(false);
+
+      // --- Auto-Settle Pending Transactions ---
+      const todayStr = new Date().toISOString().split('T')[0];
+      const pendingToSettle = fetchedEntries.filter(e => e.status === 'PENDING' && e.date <= todayStr);
+      
+      if (pendingToSettle.length > 0) {
+        try {
+          // Process sequentially to safely resolve balances
+          for (const pending of pendingToSettle) {
+            await runTransaction(db, async (trans) => {
+              const accRef = doc(db, `users/${userId}/accounts`, pending.accountId);
+              const accDoc = await trans.get(accRef);
+              if (!accDoc.exists()) return;
+              
+              const isDeduction = pending.type === 'Expense' || pending.type === 'Debt (Owed To Someone)' || pending.type === 'Loan Given (Expense)';
+              const diff = isDeduction ? -pending.amount : pending.amount;
+              
+              trans.update(accRef, { balance: (accDoc.data().balance || 0) + diff });
+              trans.update(doc(db, `users/${userId}/financial`, pending.id), { status: 'COMPLETED', lastSettled: serverTimestamp() });
+            });
+          }
+        } catch (err) {
+          console.error("Auto-settle error:", err);
+        }
+      }
     });
 
     // Listen to Accounts
@@ -1406,8 +1433,12 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
         let finalOldAccBalance = null;
         let oldAccId = oldEntryData?.accountId;
 
-        // A. Reverse Old Impact on Old Account
-        if (oldEntryData && oldEntryData.type !== 'Expected') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const isFuture = form.date > todayStr;
+        const newStatus = isFuture ? 'PENDING' : 'COMPLETED';
+
+        // A. Reverse Old Impact on Old Account (Only if it was previously COMPLETED)
+        if (oldEntryData && oldEntryData.type !== 'Expected' && oldEntryData.status !== 'PENDING') {
           const isOldDeduction = oldEntryData.type === 'Expense' || oldEntryData.type === 'Debt (Owed To Someone)' || oldEntryData.type === 'Loan Given (Expense)';
           const reversalAmount = isOldDeduction ? oldEntryData.amount : -oldEntryData.amount;
 
@@ -1418,8 +1449,8 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
           }
         }
 
-        // B. Apply New Impact on New Account
-        if (form.type !== 'Expected') {
+        // B. Apply New Impact on New Account (Only if it's COMPLETED now)
+        if (newStatus === 'COMPLETED') {
           const isNewDeduction = form.type === 'Expense' || form.type === 'Debt (Owed To Someone)' || form.type === 'Loan Given (Expense)';
           newBalanceForNewAcc = isNewDeduction ? newBalanceForNewAcc - amountValue : newBalanceForNewAcc + amountValue;
         }
@@ -1441,6 +1472,7 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
           source: form.source,
           date: form.date,
           accountId: form.accountId,
+          status: newStatus,
           lastModified: serverTimestamp(),
           ...(editingId ? {} : { createdAt: serverTimestamp() })
         };
@@ -1473,8 +1505,8 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
       await runTransaction(db, async (transaction) => {
         const isDeduction = entryType === 'Expense' || entryType === 'Debt (Owed To Someone)' || entryType === 'Loan Given (Expense)';
 
-        // 1. Get the account (if it exists in the record AND is NOT Expected)
-        if (entryAccountId && entryType !== 'Expected') {
+        // 1. Get the account (if it exists in the record AND is NOT Expected/PENDING)
+        if (entryAccountId && entryType !== 'Expected' && entry.status !== 'PENDING') {
           const accountRef = doc(db, `users/${userId}/accounts`, entryAccountId);
           const accountDoc = await transaction.get(accountRef);
 
@@ -1607,7 +1639,6 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
                               { value: 'Loan Given (Expense)', label: 'Loan Given', labelAr: 'سلفة (أديتها لحد)', icon: ArrowRight },
                               { value: 'Debt (Owed To Me)', label: 'Owed To Me', labelAr: 'سداد دين (لي)', icon: UserIcon },
                               { value: 'Debt (Owed To Someone)', label: 'Owed To Someone', labelAr: 'دين (علي)', icon: ShieldAlert },
-                              { value: 'Expected', label: 'Expected', labelAr: 'متوقع', icon: Clock },
                             ]}
                           />
                         </div>
@@ -1714,7 +1745,7 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
               ) : entries.slice(0, 30).map((entry, idx) => {
                 const acc = PRESET_ACCOUNTS.find(a => a.id === entry.accountId);
                 const isExpense = entry.type === 'Expense' || entry.type === 'Debt (Owed To Someone)';
-                const isExpected = entry.type === 'Expected';
+                const isExpected = entry.type === 'Expected' || entry.status === 'PENDING';
                 const isDebtMe = entry.type === 'Debt (Owed To Me)';
 
                 // Timeline Separator Logic
@@ -1737,12 +1768,12 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
                       <div className="flex items-center gap-6 overflow-hidden">
                         <div className={cn(
                           "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-105",
+                          isExpected ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
                           isExpense ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                            isExpected ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
                               isDebtMe ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
                                 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         )}>
-                          {isExpense ? <ShieldAlert size={22} /> : isExpected ? <Clock size={22} /> : isDebtMe ? <UserIcon size={22} /> : <ArrowLeftRight size={22} />}
+                          {isExpected ? <Clock size={22} /> : isExpense ? <ShieldAlert size={22} /> : isDebtMe ? <UserIcon size={22} /> : <ArrowLeftRight size={22} />}
                         </div>
                         <div className="overflow-hidden">
                           <p className="text-base font-bold truncate group-hover:text-primary transition-colors">{entry.source}</p>
@@ -1757,14 +1788,14 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
                         <div className="text-right hidden sm:block">
                           <div className={cn(
                             "text-xl font-headline font-black",
-                            isExpense ? 'text-red-400' : isExpected ? 'text-amber-500' : isDebtMe ? 'text-indigo-400' : 'text-emerald-400'
+                            isExpected ? 'text-amber-500' : isExpense ? 'text-red-400' : isDebtMe ? 'text-indigo-400' : 'text-emerald-400'
                           )}>
                             {isExpense ? '-' : '+'}{entry.amount.toLocaleString()} <span className="text-[10px] opacity-40">{entry.currency}</span>
                           </div>
                           <p className="text-[8px] font-bold text-on-surface-variant/30 uppercase tracking-[0.3em] mt-0.5">
                             {isArabic
-                              ? (entry.type === 'Debt (Owed To Me)' ? 'دين لي' : entry.type === 'Debt (Owed To Someone)' ? 'دين علي' : entry.type === 'Expense' ? 'مصروف' : entry.type === 'Expected' ? 'متوقع' : 'دخل')
-                              : entry.type.replace('Debt (', '').replace(')', '')}
+                              ? (isExpected ? 'مُعلّق' : entry.type === 'Debt (Owed To Me)' ? 'دين لي' : entry.type === 'Debt (Owed To Someone)' ? 'دين علي' : entry.type === 'Expense' ? 'مصروف' : 'دخل')
+                              : (isExpected ? 'PENDING' : entry.type.replace('Debt (', '').replace(')', ''))}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
