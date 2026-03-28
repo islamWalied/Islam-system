@@ -85,18 +85,10 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth';
 import {
-  collection,
-  addDoc,
-  onSnapshot,
-  deleteDoc,
-  doc,
-  setDoc,
-  query,
-  orderBy,
-  serverTimestamp,
-  runTransaction,
-  type Timestamp
+  collection, addDoc, deleteDoc, onSnapshot, query, orderBy, getDoc, setDoc, runTransaction, where, doc, serverTimestamp, type Timestamp 
 } from 'firebase/firestore';
+
+
 
 // --- Types ---
 
@@ -557,63 +549,8 @@ const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }
     <div className="space-y-8 pb-24" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
         
-        {/* Sidebar: Progress & Summary */}
-        <div className="xl:col-span-4 space-y-6">
-          <div className="bg-surface-container rounded-3xl p-8 border border-outline-variant/20 shadow-2xl relative overflow-hidden group">
-            <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
-            <div className="relative z-10">
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary/60 mb-6">
-                {isArabic ? 'البروتوكول اليومي' : 'DAILY PROTOCOL'}
-              </p>
-              
-              <div className="flex items-center justify-center mb-8">
-                <div className="relative w-40 h-40 flex-shrink-0">
-                  <svg className="w-full h-full -rotate-90">
-                    <circle className="text-surface-container-highest" cx="80" cy="80" fill="transparent" r="72"
-                      stroke="currentColor" strokeWidth="10" />
-                    <motion.circle
-                      initial={{ strokeDashoffset: 452.3 }}
-                      animate={{ strokeDashoffset: 452.3 * (1 - progress / 100) }}
-                      transition={{ duration: 1.5, ease: 'easeOut' }}
-                      className="text-primary" cx="80" cy="80" fill="transparent" r="72"
-                      stroke="currentColor" strokeDasharray="452.3" strokeWidth="10" strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-headline font-black text-on-surface">{progress}%</span>
-                    <span className="text-[10px] font-bold uppercase opacity-30 mt-1">{isArabic ? 'مكتمل' : 'DONE'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h1 className="font-headline text-2xl font-bold text-on-surface">{todayDateStr}</h1>
-                <div className="flex items-center gap-3 p-4 rounded-2xl bg-surface-variant/20 border border-outline-variant/10">
-                   <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                      <CheckCircle2 size={18} />
-                   </div>
-                   <p className="text-on-surface-variant text-sm font-bold">
-                    {isArabic
-                      ? `${checkedDoses} من ${totalDoses} جرعات مكتملة`
-                      : `${checkedDoses} / ${totalDoses} doses finished`}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <section className="bg-primary/5 rounded-3xl p-8 border border-primary/10">
-            <h4 className="text-[10px] font-black tracking-[0.2em] text-primary uppercase mb-4">Medical Continuity</h4>
-            <p className="text-xs leading-relaxed font-medium opacity-70">
-              {isArabic 
-                ? "يتم تتبع الجرعات يومياً. يتم إعادة ضبط الجدول تلقائياً عند منتصف الليل لبدء بروتوكول جديد." 
-                : "Doses are tracked daily. The schedule resets automatically at midnight for the next protocol cycle."}
-            </p>
-          </section>
-        </div>
-
-        {/* Main: Medication Cards */}
-        <div className="xl:col-span-8">
+        {/* Main: Medication Cards (First in source = Right in RTL) */}
+        <div className="xl:col-span-8 order-1">
           {loading ? (
             <div className="flex justify-center py-20">
               <Loader2 className="text-primary animate-spin" size={32} />
@@ -627,7 +564,7 @@ const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }
                 <span className="text-[9px] font-mono opacity-30 uppercase">{applicableMeds.length} Items Today</span>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
+              <div className="grid grid-cols-1 gap-6 pb-20">
                 {MEDICINE_SCHEDULE.map((med, mIdx) => {
                   const isToday = med.frequency === 'daily' ||
                     (med.weekDays && med.weekDays.includes(todayJS));
@@ -639,8 +576,8 @@ const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }
 
                   return (
                     <motion.div key={med.id}
-                      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: mIdx * 0.1 }}
+                      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: mIdx * 0.05 }}
                       className={cn(
                         'bg-surface-container rounded-3xl border overflow-hidden shadow-xl transition-all duration-500',
                         allDone ? 'border-primary/40 shadow-primary/10' : 'border-outline-variant/20'
@@ -706,6 +643,62 @@ const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }
             </div>
           )}
         </div>
+
+        {/* Sidebar: Progress & Summary (Second in source = Left in RTL) */}
+        <div className="xl:col-span-4 space-y-6 order-2">
+          <div className="bg-surface-container rounded-3xl p-8 border border-outline-variant/20 shadow-2xl relative overflow-hidden group">
+            <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
+            <div className="relative z-10">
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary/60 mb-6">
+                {isArabic ? 'البروتوكول اليومي' : 'DAILY PROTOCOL'}
+              </p>
+              
+              <div className="flex items-center justify-center mb-8">
+                <div className="relative w-40 h-40 flex-shrink-0">
+                  <svg className="w-full h-full -rotate-90">
+                    <circle className="text-surface-container-highest" cx="80" cy="80" fill="transparent" r="72"
+                      stroke="currentColor" strokeWidth="10" />
+                    <motion.circle
+                      initial={{ strokeDashoffset: 452.3 }}
+                      animate={{ strokeDashoffset: 452.3 * (1 - progress / 100) }}
+                      transition={{ duration: 1.5, ease: 'easeOut' }}
+                      className="text-primary" cx="80" cy="80" fill="transparent" r="72"
+                      stroke="currentColor" strokeDasharray="452.3" strokeWidth="10" strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-headline font-black text-on-surface">{progress}%</span>
+                    <span className="text-[10px] font-bold uppercase opacity-30 mt-1">{isArabic ? 'مكتمل' : 'DONE'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h1 className="font-headline text-2xl font-bold text-on-surface">{todayDateStr}</h1>
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-surface-variant/20 border border-outline-variant/10">
+                   <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                      <CheckCircle2 size={18} />
+                   </div>
+                   <p className="text-on-surface-variant text-sm font-bold">
+                    {isArabic
+                      ? `${checkedDoses} من ${totalDoses} جرعات مكتملة`
+                      : `${checkedDoses} / ${totalDoses} doses finished`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <section className="bg-primary/5 rounded-3xl p-8 border border-primary/10">
+            <h4 className="text-[10px] font-black tracking-[0.2em] text-primary uppercase mb-4">Medical Continuity</h4>
+            <p className="text-xs leading-relaxed font-medium opacity-70">
+              {isArabic 
+                ? "يتم تتبع الجرعات يومياً. يتم إعادة ضبط الجدول تلقائياً عند منتصف الليل لبدء بروتوكول جديد." 
+                : "Doses are tracked daily. The schedule resets automatically at midnight for the next protocol cycle."}
+            </p>
+          </section>
+        </div>
+
       </div>
     </div>
   );
@@ -1116,78 +1109,95 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
                   <Landmark size={48} className="text-primary mb-4" />
                   <p className="text-sm font-black tracking-widest">{isArabic ? 'لا توجد بيانات' : 'CLEAN_SLATE'}</p>
                 </div>
-              ) : entries.slice(0, 30).map((entry) => {
+              ) : entries.slice(0, 30).map((entry, idx) => {
                 const acc = PRESET_ACCOUNTS.find(a => a.id === entry.accountId);
                 const isExpense = entry.type === 'Expense' || entry.type === 'Debt (Owed To Someone)';
                 const isExpected = entry.type === 'Expected';
                 const isDebtMe = entry.type === 'Debt (Owed To Me)';
                 
+                // Timeline Separator Logic
+                const prevEntry = idx > 0 ? entries[idx - 1] : null;
+                const showDateHeader = !prevEntry || prevEntry.date !== entry.date;
+                
+                let dateDisplay = entry.date;
+                if (entry.date === new Date().toISOString().split('T')[0]) dateDisplay = isArabic ? 'اليوم' : 'Today';
+                else if (entry.date === new Date(Date.now() - 86400000).toISOString().split('T')[0]) dateDisplay = isArabic ? 'أمس' : 'Yesterday';
+
                 return (
-                  <div key={entry.id} className="group p-5 hover:bg-surface-bright/50 rounded-2xl transition-all flex items-center justify-between border border-transparent hover:border-outline-variant/10">
-                    <div className="flex items-center gap-6 overflow-hidden">
-                      <div className={cn(
-                        "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-105",
-                        isExpense ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-                        isExpected ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
-                        isDebtMe ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                        'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      )}>
-                        {isExpense ? <ShieldAlert size={22} /> : isExpected ? <Clock size={22} /> : isDebtMe ? <UserIcon size={22} /> : <ArrowLeftRight size={22} />}
+                  <div key={entry.id}>
+                    {showDateHeader && (
+                      <div className="flex items-center gap-4 px-2 py-4 mt-4">
+                        <span className="text-[10px] font-black tracking-[0.4em] text-primary uppercase whitespace-nowrap">{dateDisplay}</span>
+                        <div className="h-[1px] w-full bg-gradient-to-r from-primary/20 to-transparent" />
                       </div>
-                      <div className="overflow-hidden">
-                        <p className="text-base font-bold truncate group-hover:text-primary transition-colors">{entry.source}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">{isArabic ? acc?.nameAr : acc?.nameEn}</span>
-                          <span className="w-1 h-1 rounded-full bg-outline-variant" />
-                          <span className="text-[9px] text-on-surface-variant/40 font-mono italic">{entry.date}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-8">
-                       <div className="text-right hidden sm:block">
+                    )}
+                    <div className="group p-5 hover:bg-surface-bright/50 rounded-2xl transition-all flex items-center justify-between border border-transparent hover:border-outline-variant/10">
+                      <div className="flex items-center gap-6 overflow-hidden">
                         <div className={cn(
-                          "text-xl font-headline font-black",
-                          isExpense ? 'text-red-400' : isExpected ? 'text-amber-500' : isDebtMe ? 'text-indigo-400' : 'text-emerald-400'
+                          "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-105",
+                          isExpense ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                          isExpected ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                          isDebtMe ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                          'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         )}>
-                          {isExpense ? '-' : '+'}{entry.amount.toLocaleString()} <span className="text-[10px] opacity-40">{entry.currency}</span>
+                          {isExpense ? <ShieldAlert size={22} /> : isExpected ? <Clock size={22} /> : isDebtMe ? <UserIcon size={22} /> : <ArrowLeftRight size={22} />}
                         </div>
-                        <p className="text-[8px] font-bold text-on-surface-variant/30 uppercase tracking-[0.3em] mt-0.5">
-                          {isArabic 
-                            ? (entry.type === 'Debt (Owed To Me)' ? 'دين لي — أصل' : entry.type === 'Debt (Owed To Someone)' ? 'دين علي — التزام' : entry.type === 'Expense' ? 'مصروف جاري' : entry.type === 'Expected' ? 'متوقع مستقبلاً' : 'دخل وارد')
-                            : entry.type.replace('Debt (', '').replace(')', '')}
-                        </p>
+                        <div className="overflow-hidden">
+                          <p className="text-base font-bold truncate group-hover:text-primary transition-colors">{entry.source}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">{isArabic ? acc?.nameAr : acc?.nameEn}</span>
+                            <span className="w-1 h-1 rounded-full bg-outline-variant" />
+                            <span className="text-[9px] text-on-surface-variant/40 font-mono italic">{entry.date}</span>
+                          </div>
+                        </div>
                       </div>
-                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                        <button
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            setEditingId(entry.id); 
-                            setForm({ 
-                              type: entry.type, 
-                              amount: entry.amount.toString(), 
-                              source: entry.source, 
-                              date: entry.date, 
-                              accountId: entry.accountId 
-                            });
-                            setSelectedCurrency(entry.currency);
-                            setIsFormOpen(true);
-                            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          }}
-                          className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center transition-all hover:bg-primary hover:text-white active:scale-90 shadow-sm"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
-                          className="w-10 h-10 rounded-xl bg-red-400/15 text-red-500 flex items-center justify-center transition-all hover:bg-red-500 hover:text-white active:scale-90 shadow-sm"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                      <div className="flex items-center gap-8">
+                         <div className="text-right hidden sm:block">
+                          <div className={cn(
+                            "text-xl font-headline font-black",
+                            isExpense ? 'text-red-400' : isExpected ? 'text-amber-500' : isDebtMe ? 'text-indigo-400' : 'text-emerald-400'
+                          )}>
+                            {isExpense ? '-' : '+'}{entry.amount.toLocaleString()} <span className="text-[10px] opacity-40">{entry.currency}</span>
+                          </div>
+                          <p className="text-[8px] font-bold text-on-surface-variant/30 uppercase tracking-[0.3em] mt-0.5">
+                            {isArabic 
+                              ? (entry.type === 'Debt (Owed To Me)' ? 'دين لي' : entry.type === 'Debt (Owed To Someone)' ? 'دين علي' : entry.type === 'Expense' ? 'مصروف' : entry.type === 'Expected' ? 'متوقع' : 'دخل')
+                              : entry.type.replace('Debt (', '').replace(')', '')}
+                          </p>
+                        </div>
+                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                          <button
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              setEditingId(entry.id); 
+                              setForm({ 
+                                type: entry.type, 
+                                amount: entry.amount.toString(), 
+                                source: entry.source, 
+                                date: entry.date, 
+                                accountId: entry.accountId 
+                              });
+                              setSelectedCurrency(entry.currency);
+                              setIsFormOpen(true);
+                              formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }}
+                            className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center transition-all hover:bg-primary hover:text-white active:scale-90 shadow-sm"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
+                            className="w-10 h-10 rounded-xl bg-red-400/15 text-red-500 flex items-center justify-center transition-all hover:bg-red-500 hover:text-white active:scale-90 shadow-sm"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 );
               })}
+
 
             </div>
           </section>
@@ -1293,8 +1303,12 @@ const NutritionView = ({ userId, isArabic }: { userId: string, isArabic: boolean
   const [form, setForm] = useState({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '' });
 
   useEffect(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    
     const q = query(
       collection(db, `users/${userId}/nutrition`),
+      where('createdAt', '>=', startOfToday),
       orderBy('createdAt', 'desc')
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -1303,6 +1317,7 @@ const NutritionView = ({ userId, isArabic }: { userId: string, isArabic: boolean
     });
     return () => unsub();
   }, [userId]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1397,7 +1412,27 @@ const NutritionView = ({ userId, isArabic }: { userId: string, isArabic: boolean
   })).filter(group => group.entries.length > 0);
 
   return (
-    <div className="space-y-10 h-full overflow-y-auto no-scrollbar pb-24">
+    <div className="space-y-10 h-full overflow-y-auto no-scrollbar pb-24" dir={isArabic ? 'rtl' : 'ltr'}>
+      
+      {/* Daily Protocol Header */}
+      <section className="bg-surface-container rounded-3xl p-8 border border-outline-variant/20 shadow-2xl relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
+        <div className="relative z-10 flex items-center justify-between">
+            <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-1">
+                    {isArabic ? 'البروتوكول الغذائي اليومي' : 'DAILY_NUTRITION_PROTOCOL'}
+                </p>
+                <h1 className="text-3xl font-headline font-black text-on-surface">
+                    {new Date().toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </h1>
+            </div>
+            <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[9px] font-mono text-primary/60 uppercase">Real-Time Tracker</span>
+            </div>
+        </div>
+      </section>
+
       <section>
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-[10px] font-bold tracking-[0.3em] uppercase text-on-surface-variant">
