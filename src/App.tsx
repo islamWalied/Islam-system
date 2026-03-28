@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Pill,
   Plus,
@@ -23,10 +24,54 @@ import {
   Menu,
   Trash2,
   Loader2,
-  Languages
+  Languages,
+  Droplets,
+  Eye,
+  Sparkles,
+  Clock,
+  Flame,
+  Zap,
+  Activity,
+  PlusCircle,
+  ChevronDown,
+  Edit2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
+
+const GlobalStyles = () => (
+  <style>{`
+    /* Hide number input spinners globally */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none !important;
+      margin: 0 !important; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield !important;
+      appearance: none !important;
+    }
+
+    /* Custom Scrollbar for better UX */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      display: block !important;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(var(--md-sys-color-surface-variant-rgb), 0.1);
+      border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(var(--md-sys-color-primary-rgb), 0.3);
+      border-radius: 10px;
+      border: 1px solid rgba(var(--md-sys-color-surface-rgb), 0.1);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(var(--md-sys-color-primary-rgb), 0.5);
+    }
+  `}</style>
+);
+
 import {
   auth,
   db,
@@ -49,6 +94,7 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  runTransaction,
   type Timestamp
 } from 'firebase/firestore';
 
@@ -85,10 +131,10 @@ const MEDICINE_SCHEDULE = [
     frequency: 'daily' as const,
     weekDays: null as number[] | null,
     doses: [
-      { idx: 0, time: '09:00', displayTime: '9:00 ص',  note: 'الجرعة الأولى' },
-      { idx: 1, time: '13:00', displayTime: '1:00 م',  note: 'الجرعة الثانية' },
-      { idx: 2, time: '17:00', displayTime: '5:00 م',  note: 'الجرعة الثالثة' },
-      { idx: 3, time: '21:00', displayTime: '9:00 م',  note: 'الجرعة الرابعة' },
+      { idx: 0, time: '09:00', displayTime: '9:00 ص', note: 'الجرعة الأولى' },
+      { idx: 1, time: '13:00', displayTime: '1:00 م', note: 'الجرعة الثانية' },
+      { idx: 2, time: '17:00', displayTime: '5:00 م', note: 'الجرعة الثالثة' },
+      { idx: 3, time: '21:00', displayTime: '9:00 م', note: 'الجرعة الرابعة' },
     ]
   },
   {
@@ -103,9 +149,9 @@ const MEDICINE_SCHEDULE = [
     frequency: 'daily' as const,
     weekDays: null as number[] | null,
     doses: [
-      { idx: 0, time: '09:30', displayTime: '9:30 ص',  note: 'الجرعة الأولى' },
-      { idx: 1, time: '13:30', displayTime: '1:30 م',  note: 'الجرعة الثانية' },
-      { idx: 2, time: '17:30', displayTime: '5:30 م',  note: 'الجرعة الثالثة' },
+      { idx: 0, time: '09:30', displayTime: '9:30 ص', note: 'الجرعة الأولى' },
+      { idx: 1, time: '13:30', displayTime: '1:30 م', note: 'الجرعة الثانية' },
+      { idx: 2, time: '17:30', displayTime: '5:30 م', note: 'الجرعة الثالثة' },
     ]
   },
   {
@@ -134,7 +180,15 @@ interface FinancialEntry {
   currency: string;
   source: string;
   date: string;
+  accountId: string;
   createdAt: Timestamp | null;
+}
+
+interface AccountSnapshot {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  balance: number;
 }
 
 interface NutritionEntry {
@@ -148,7 +202,97 @@ interface NutritionEntry {
   createdAt: Timestamp | null;
 }
 
+interface MedicalRecord {
+  id: string;
+  systolic: number;
+  diastolic: number;
+  heartRate: number;
+  date: string;
+  createdAt: any;
+}
+
 // --- Components ---
+
+// --- Reusable UI: Custom Select ---
+
+const OSSelect = ({ options, value, onChange, isArabic, icon: Icon, className }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const selectedOption = options.find((o: any) => o.value === value);
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      // Since the Portal container is 'fixed', we use viewport coordinates (no scroll offset needed)
+      setCoords({ top: rect.bottom, left: rect.left, width: rect.width });
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
+  return (
+    <div className={cn("relative", className)}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full recessed-input text-sm py-4 px-5 flex items-center justify-between"
+      >
+        <div className="flex items-center gap-3">
+          {Icon && <Icon size={16} className="text-primary/60" />}
+          <span className="font-bold">{isArabic ? selectedOption?.labelAr || selectedOption?.label : selectedOption?.label}</span>
+        </div>
+        <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
+          <ChevronDown size={14} className="opacity-40" />
+        </motion.div>
+      </button>
+
+      {isOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex flex-col pointer-events-none">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px] pointer-events-auto" onClick={() => setIsOpen(false)} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            style={{ top: coords.top + 8, left: coords.left, width: coords.width }}
+            className="absolute z-[101] bg-surface-container-high rounded-3xl border border-outline-variant shadow-2xl overflow-hidden max-h-72 overflow-y-auto custom-scrollbar overscroll-contain pointer-events-auto"
+          >
+            {options.map((opt: any) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                className={cn(
+                  "w-full p-5 flex items-center gap-4 transition-all hover:bg-primary/5 text-on-surface group",
+                  value === opt.value && "bg-primary/10"
+                )}
+                dir={isArabic ? 'rtl' : 'ltr'}
+              >
+                <div className={cn(
+                  "w-2 h-2 rounded-full transition-all",
+                  value === opt.value ? "bg-primary scale-100" : "bg-transparent scale-0"
+                )} />
+                <div className="flex items-center gap-3 flex-1">
+                  {opt.icon && <opt.icon size={16} className={cn("flex-shrink-0", value === opt.value ? "text-primary" : "text-on-surface-variant/40")} />}
+                  <span className={cn(
+                    "text-sm transition-colors whitespace-nowrap",
+                    value === opt.value ? "font-black text-primary" : "font-bold text-on-surface-variant"
+                  )}>
+                    {isArabic ? opt.labelAr || opt.label : opt.label}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </motion.div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
 
 const LoadingScreen = () => (
   <div className="min-h-screen bg-surface flex items-center justify-center">
@@ -159,166 +303,139 @@ const LoadingScreen = () => (
   </div>
 );
 
-const Sidebar = ({ user, activeMode, setMode, isOpen, toggle, onLogout, isArabic }: {
-  user: FirebaseUser | null,
+// --- Bottom Navigation ---
+
+const BottomNav = ({ activeMode, setMode, isArabic }: {
   activeMode: AppMode,
   setMode: (m: AppMode) => void,
-  isOpen: boolean,
-  toggle: () => void,
-  onLogout: () => void,
   isArabic: boolean
 }) => {
-  const menuItems = [
-    { id: 'MEDICAL', label: isArabic ? 'النظام الطبي' : 'Medical OS', icon: Pill, sub: isArabic ? 'العلامات الحيوية مستقرة' : 'Vitals Stable' },
-    { id: 'FINANCIAL', label: isArabic ? 'نظام إسلام' : 'Islam OS', icon: Landmark, sub: isArabic ? 'تتبع دقيق' : 'Precision Tracking' },
-    { id: 'NUTRITION', label: isArabic ? 'نظام التغذية' : 'Nutrition OS', icon: Utensils, sub: isArabic ? 'الأيض مثالي' : 'Metabolism Optimal' },
+  const items = [
+    { id: 'NUTRITION', icon: Utensils, labelAr: 'التغذية', labelEn: 'Nutrition', color: 'text-emerald-400', activeBg: 'bg-emerald-400/20' },
+    { id: 'FINANCIAL', icon: Landmark, labelAr: 'المالية', labelEn: 'Financial', color: 'text-primary', activeBg: 'bg-primary/20' },
+    { id: 'MEDICAL', icon: Pill, labelAr: 'الطبي', labelEn: 'Medical', color: 'text-blue-400', activeBg: 'bg-blue-400/20' },
   ];
-
   return (
-    <>
-      {/* Mobile Overlay */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={toggle}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-          />
-        )}
-      </AnimatePresence>
-
-      <aside className={cn(
-        "fixed top-0 h-screen w-64 bg-surface-container border-r border-outline-variant flex flex-col py-6 z-50 transition-transform duration-300 lg:translate-x-0",
-        isArabic ? "right-0 border-l border-r-0" : "left-0",
-        isOpen ? "translate-x-0" : (isArabic ? "translate-x-full" : "-translate-x-full")
-      )}>
-        <div className="px-6 mb-10">
-          <div className="text-xl font-bold tracking-tighter text-primary font-headline">{isArabic ? 'النظام الشخصي' : 'PERSONAL OS'}</div>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mt-1">{isArabic ? 'النواة الأساسية v4.2' : 'System Core v4.2'}</div>
-        </div>
-
-        <div className="px-4 mb-6 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/60 px-2">{isArabic ? 'اختيار الوحدة' : 'Module Select'}</p>
-          {menuItems.map((item) => (
-            <button
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-5 px-4 pointer-events-none">
+      <div className="pointer-events-auto w-full max-w-xs bg-surface-container/95 backdrop-blur-2xl border border-outline-variant/40 rounded-3xl flex shadow-2xl shadow-black/60 overflow-hidden">
+        {items.map((item) => {
+          const isActive = activeMode === item.id;
+          return (
+            <motion.button
               key={item.id}
-              onClick={() => { setMode(item.id as AppMode); if (window.innerWidth < 1024) toggle(); }}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all group",
-                isArabic ? "flex-row-reverse text-right" : "",
-                activeMode === item.id
-                  ? cn("bg-surface-container-highest text-primary shadow-lg shadow-primary/5", isArabic ? "border-r-4 border-primary" : "border-l-4 border-primary")
-                  : "text-on-surface-variant hover:bg-surface-container-highest/50 hover:text-on-surface"
-              )}
+              onClick={() => setMode(item.id as AppMode)}
+              whileTap={{ scale: 0.90 }}
+              className="flex-1 flex flex-col items-center justify-center py-3.5 gap-1 relative overflow-hidden"
             >
-              <item.icon size={20} />
-              <div className={isArabic ? "text-right" : "text-left"}>
-                <div className="text-xs font-bold uppercase tracking-wider">{item.label}</div>
-                <div className="text-[9px] opacity-60">{item.sub}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <div className="px-4 mt-auto space-y-6">
-          <div className={cn("flex items-center gap-3 px-2 py-2 border-t border-outline-variant", isArabic && "flex-row-reverse")}>
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-outline-variant bg-surface-container-highest flex-shrink-0">
-              {user?.photoURL ? (
-                <img
-                  src={user.photoURL}
-                  alt="User"
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-primary">
-                  <UserIcon size={20} />
-                </div>
-              )}
-            </div>
-            <div className={cn("overflow-hidden flex-1", isArabic && "text-right")}>
-              <p className="text-xs font-bold truncate">{user?.displayName || (isArabic ? 'المشغّل' : 'Operator')}</p>
-              <p className="text-[9px] text-on-surface-variant uppercase tracking-tighter truncate">{user?.email}</p>
-            </div>
-            <button onClick={onLogout} className="ml-auto text-on-surface-variant hover:text-red-400 transition-colors flex-shrink-0" title={isArabic ? 'تسجيل الخروج' : 'Sign Out'}>
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-      </aside>
-    </>
+              <AnimatePresence>
+                {isActive && (
+                  <motion.div
+                    key="bg"
+                    layoutId="active-nav-bg"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className={cn('absolute inset-1 rounded-2xl', item.activeBg)}
+                    transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                  />
+                )}
+              </AnimatePresence>
+              <item.icon
+                size={22}
+                className={cn('relative z-10 transition-all duration-300', isActive ? item.color : 'text-on-surface-variant/40')}
+              />
+              <span className={cn('relative z-10 text-[10px] font-bold tracking-wider transition-all duration-300', isActive ? item.color : 'text-on-surface-variant/40')}>
+                {isArabic ? item.labelAr : item.labelEn}
+              </span>
+            </motion.button>
+          );
+        })}
+      </div>
+    </nav>
   );
 };
 
-const TopBar = ({ title, toggleSidebar, isArabic, toggleLanguage }: { title: string, toggleSidebar: () => void, isArabic: boolean, toggleLanguage: () => void }) => {
-  return (
-    <header className={cn(
-      "fixed top-0 h-16 z-40 bg-surface/80 backdrop-blur-xl flex justify-between items-center px-6 border-b border-outline-variant",
-      isArabic ? "right-0 lg:right-64 left-0" : "right-0 left-0 lg:left-64"
-    )}>
-      <div className={cn("flex items-center gap-4", isArabic && "flex-row-reverse")}>
-        <button onClick={toggleSidebar} className="lg:hidden text-on-surface-variant hover:text-primary">
-          <Menu size={24} />
-        </button>
-        <div className="text-xs font-black tracking-widest text-on-surface uppercase">{title}</div>
-        <div className="hidden sm:flex items-center gap-2 text-primary">
-          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          <span className="text-[10px] font-bold tracking-widest uppercase">{isArabic ? 'مزامنة Firebase' : 'Firebase Synced'}</span>
-        </div>
-      </div>
+// --- Top Bar ---
 
-      <div className={cn("flex items-center gap-4", isArabic && "flex-row-reverse")}>
-        <div className="relative hidden md:flex items-center bg-black/40 rounded-full px-4 py-1.5 w-64 border border-outline-variant">
-          <Search size={14} className="text-on-surface-variant mr-2" />
-          <input
-            type="text"
-            placeholder={isArabic ? 'بحث في السجلات...' : 'Search records...'}
-            className="bg-transparent border-none text-xs focus:ring-0 p-0 placeholder-on-surface-variant/50 w-full"
-            dir={isArabic ? 'rtl' : 'ltr'}
+const TopBar = ({ title, isArabic, toggleLanguage, user, onLogout }: {
+  title: string,
+  isArabic: boolean,
+  toggleLanguage: () => void,
+  user: FirebaseUser | null,
+  onLogout: () => void
+}) => (
+  <header
+    className="fixed top-0 left-0 right-0 h-16 z-40 bg-surface/90 backdrop-blur-xl flex items-center px-5 border-b border-outline-variant"
+    dir={isArabic ? 'rtl' : 'ltr'}
+  >
+    {/* Brand */}
+    <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="text-primary font-headline font-black text-sm tracking-widest uppercase">
+        {isArabic ? 'نظامي' : 'Personal OS'}
+      </div>
+      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+    </div>
+
+    {/* Centre title */}
+    <div className="flex-1 text-center">
+      <span className="text-[10px] font-black tracking-widest text-on-surface uppercase hidden sm:inline">
+        {title}
+      </span>
+    </div>
+
+    {/* Actions */}
+    <div className="flex items-center gap-2 flex-shrink-0">
+      <button
+        onClick={toggleLanguage}
+        className="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors px-2.5 py-1.5 rounded-lg border border-outline-variant hover:border-primary text-[10px] font-bold"
+      >
+        <Languages size={13} />
+        <span>{isArabic ? 'EN' : 'عر'}</span>
+      </button>
+      <div className="relative group">
+        {user?.photoURL ? (
+          <img
+            src={user.photoURL}
+            alt=""
+            className="w-8 h-8 rounded-full border-2 border-outline-variant object-cover cursor-pointer"
+            referrerPolicy="no-referrer"
           />
-        </div>
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center">
+            <UserIcon size={16} className="text-on-surface-variant" />
+          </div>
+        )}
         <button
-          onClick={toggleLanguage}
-          className="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors px-3 py-1.5 rounded-lg border border-outline-variant hover:border-primary"
-          title={isArabic ? 'Switch to English' : 'التبديل إلى العربية'}
+          onClick={onLogout}
+          className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-surface-container border border-red-500/40 flex items-center justify-center text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+          title={isArabic ? 'تسجيل الخروج' : 'Sign Out'}
         >
-          <Languages size={16} />
-          <span className="text-[10px] font-bold">{isArabic ? 'EN' : 'عر'}</span>
-        </button>
-        <button className="text-on-surface-variant hover:text-primary transition-colors">
-          <Bell size={20} />
-        </button>
-        <button className="text-on-surface-variant hover:text-primary transition-colors">
-          <ShieldAlert size={20} />
+          <LogOut size={9} />
         </button>
       </div>
-    </header>
-  );
-};
+    </div>
+  </header>
+);
 
 // --- View: Auth ---
 
-const AuthView = ({ onLogin, isLoading, error }: { onLogin: () => void, isLoading: boolean, error: string | null }) => {
+const AuthView = ({ onLogin, isLoading, error, isArabic }: { onLogin: () => void, isLoading: boolean, error: string | null, isArabic: boolean }) => {
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-surface-bright/20 blur-[120px] rounded-full pointer-events-none" />
-
-      <header className="fixed top-0 w-full flex items-center justify-between px-8 py-6">
-        <div className="text-xl font-bold tracking-widest uppercase text-primary font-headline">PERSONAL OS</div>
-        <button className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors">Support</button>
-      </header>
-
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-[440px] glass-card p-10 rounded-2xl shadow-2xl relative z-10"
       >
         <div className="text-center mb-10">
-          <h1 className="font-headline font-bold text-4xl tracking-tight text-on-surface mb-3">Welcome Back</h1>
-          <p className="text-on-surface-variant text-[10px] uppercase tracking-[0.2em] font-bold">Access your digital sanctuary</p>
+          <h1 className="font-headline font-bold text-4xl tracking-tight text-on-surface mb-3">
+            {isArabic ? 'مرحباً بعودتك' : 'Welcome Back'}
+          </h1>
+          <p className="text-on-surface-variant text-[10px] uppercase tracking-[0.2em] font-bold">
+            {isArabic ? 'ادخل إلى مساحتك الرقمية' : 'Access your digital sanctuary'}
+          </p>
         </div>
 
         {error && (
@@ -331,7 +448,6 @@ const AuthView = ({ onLogin, isLoading, error }: { onLogin: () => void, isLoadin
             <p className="text-xs text-red-400 font-bold">{error}</p>
           </motion.div>
         )}
-
         <button
           onClick={onLogin}
           disabled={isLoading}
@@ -348,414 +464,818 @@ const AuthView = ({ onLogin, isLoading, error }: { onLogin: () => void, isLoadin
             />
           )}
           <span className="text-sm font-bold tracking-tight text-on-surface">
-            {isLoading ? 'Authenticating...' : 'Sign in with Google'}
+            {isLoading ? (isArabic ? 'جاري التحقق...' : 'Authenticating...') : (isArabic ? 'تسجيل الدخول بجوجل' : 'Sign in with Google')}
           </span>
         </button>
 
         <div className="flex items-center gap-4 opacity-30 justify-center">
           <div className="h-[1px] flex-1 bg-on-surface" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Secure Protocol</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest">{isArabic ? 'بروتوكول آمن' : 'Secure Protocol'}</span>
           <div className="h-[1px] flex-1 bg-on-surface" />
         </div>
       </motion.div>
-
-      <div className="mt-12 flex justify-center items-center gap-8 opacity-40">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 size={14} className="text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Firebase Encrypted</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Bolt size={14} className="text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Access Restricted</span>
-        </div>
-      </div>
-
-      <footer className="fixed bottom-0 w-full flex flex-col md:flex-row justify-between items-center px-8 py-8 gap-4 opacity-40">
-        <p className="text-[10px] font-bold uppercase tracking-widest">© 2026 Personal OS. Precision Encrypted.</p>
-        <div className="flex gap-6">
-          <button className="text-[10px] font-bold uppercase tracking-widest hover:text-on-surface transition-colors">Privacy Policy</button>
-          <button className="text-[10px] font-bold uppercase tracking-widest hover:text-on-surface transition-colors">Terms of Service</button>
-        </div>
-      </footer>
     </div>
   );
 };
 
 // --- View: Medical ---
 
-const MedicalView = ({ userId }: { userId: string }) => {
-  const [entries, setEntries] = useState<MedicalEntry[]>([]);
+const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }) => {
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayJS = new Date().getDay(); // 0=Sun … 6=Sat
+
+  const [checks, setChecks] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ medication: '', dose: '', time: '', notes: '' });
-  const [submitting, setSubmitting] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
+
+
+  const [expandedMedIds, setExpandedMedIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const q = query(
-      collection(db, `users/${userId}/medical`),
-      orderBy('createdAt', 'desc')
+    // Default: expand medications that have pending today doses
+    const pendingIds = MEDICINE_SCHEDULE
+      .filter(m => {
+        const isToday = m.frequency === 'daily' || (m.weekDays && m.weekDays.includes(todayJS));
+        const allDone = m.doses.every(d => checks[`${m.id}_${d.idx}`]);
+        return isToday && !allDone;
+      })
+      .map(m => m.id);
+    setExpandedMedIds(pendingIds);
+  }, [checks, todayJS]);
+
+  const toggleExpand = (id: string) => {
+    setExpandedMedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, `users/${userId}/medcheck/${today}`),
+      (snap) => {
+        setChecks(snap.exists() ? (snap.data() as Record<string, boolean>) : {});
+        setLoading(false);
+      }
     );
-    const unsub = onSnapshot(q, (snap) => {
-      setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalEntry)));
-      setLoading(false);
-    });
     return () => unsub();
-  }, [userId]);
+  }, [userId, today]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.medication || !form.dose) return;
-    setSubmitting(true);
+
+
+
+
+
+
+  const toggleDose = async (medicineId: string, doseIdx: number) => {
+    const key = `${medicineId}_${doseIdx}`;
+    const current = checks[key] ?? false;
+    setToggling(key);
     try {
-      await addDoc(collection(db, `users/${userId}/medical`), {
-        ...form,
-        createdAt: serverTimestamp(),
-      });
-      setForm({ medication: '', dose: '', time: '', notes: '' });
-    } catch (err) {
-      console.error(err);
-    }
-    setSubmitting(false);
+      await setDoc(
+        doc(db, `users/${userId}/medcheck/${today}`),
+        { [key]: !current },
+        { merge: true }
+      );
+    } catch (err) { console.error(err); }
+    finally { setToggling(null); }
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteDoc(doc(db, `users/${userId}/medical`, id));
-  };
+  const applicableMeds = MEDICINE_SCHEDULE.filter(
+    m => m.frequency === 'daily' || (m.weekDays && m.weekDays.includes(todayJS))
+  );
+  const totalDoses = applicableMeds.reduce((a, m) => a + m.doses.length, 0);
+  const checkedDoses = applicableMeds.reduce(
+    (a, m) => a + m.doses.filter(d => checks[`${m.id}_${d.idx}`]).length, 0
+  );
+  const progress = totalDoses > 0 ? Math.round((checkedDoses / totalDoses) * 100) : 0;
+
+  const todayDateStr = new Date().toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
 
   return (
-    <div className="grid grid-cols-12 gap-8 h-full">
-      <div className="col-span-12 lg:col-span-8 flex flex-col">
-        <div className="mb-8 flex justify-between items-end">
-          <div>
-            <h1 className="font-headline text-4xl font-bold text-on-surface">Medical Log</h1>
-            <p className="text-on-surface-variant text-sm mt-2">Real-time Firebase synced entries</p>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="text-primary animate-spin" size={32} />
-            </div>
-          ) : entries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 opacity-40">
-              <Pill size={48} className="text-primary mb-4" />
-              <p className="text-sm font-bold uppercase tracking-widest">No entries yet</p>
-            </div>
-          ) : (
-            entries.map((entry, idx) => (
-              <motion.div
-                key={entry.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.05 }}
-                className="bg-surface-container p-6 rounded-2xl border border-outline-variant/30 flex items-center justify-between group hover:bg-surface-container-high transition-all"
-              >
-                <div className="flex gap-4 items-center">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                    <Pill size={24} />
-                  </div>
-                  <div>
-                    <h3 className="font-headline text-lg font-bold">{entry.medication}</h3>
-                    <p className="text-xs text-on-surface-variant mt-1">{entry.dose} {entry.time && `• ${entry.time}`}</p>
-                    {entry.notes && <p className="text-[10px] text-on-surface-variant/60 mt-1 italic">{entry.notes}</p>}
+    <div className="space-y-8 pb-24" dir={isArabic ? 'rtl' : 'ltr'}>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+        
+        {/* Sidebar: Progress & Summary */}
+        <div className="xl:col-span-4 space-y-6">
+          <div className="bg-surface-container rounded-3xl p-8 border border-outline-variant/20 shadow-2xl relative overflow-hidden group">
+            <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
+            <div className="relative z-10">
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary/60 mb-6">
+                {isArabic ? 'البروتوكول اليومي' : 'DAILY PROTOCOL'}
+              </p>
+              
+              <div className="flex items-center justify-center mb-8">
+                <div className="relative w-40 h-40 flex-shrink-0">
+                  <svg className="w-full h-full -rotate-90">
+                    <circle className="text-surface-container-highest" cx="80" cy="80" fill="transparent" r="72"
+                      stroke="currentColor" strokeWidth="10" />
+                    <motion.circle
+                      initial={{ strokeDashoffset: 452.3 }}
+                      animate={{ strokeDashoffset: 452.3 * (1 - progress / 100) }}
+                      transition={{ duration: 1.5, ease: 'easeOut' }}
+                      className="text-primary" cx="80" cy="80" fill="transparent" r="72"
+                      stroke="currentColor" strokeDasharray="452.3" strokeWidth="10" strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-headline font-black text-on-surface">{progress}%</span>
+                    <span className="text-[10px] font-bold uppercase opacity-30 mt-1">{isArabic ? 'مكتمل' : 'DONE'}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDelete(entry.id)}
-                  className="text-on-surface-variant hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 ml-4"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </motion.div>
-            ))
+              </div>
+
+              <div className="space-y-4">
+                <h1 className="font-headline text-2xl font-bold text-on-surface">{todayDateStr}</h1>
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-surface-variant/20 border border-outline-variant/10">
+                   <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                      <CheckCircle2 size={18} />
+                   </div>
+                   <p className="text-on-surface-variant text-sm font-bold">
+                    {isArabic
+                      ? `${checkedDoses} من ${totalDoses} جرعات مكتملة`
+                      : `${checkedDoses} / ${totalDoses} doses finished`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <section className="bg-primary/5 rounded-3xl p-8 border border-primary/10">
+            <h4 className="text-[10px] font-black tracking-[0.2em] text-primary uppercase mb-4">Medical Continuity</h4>
+            <p className="text-xs leading-relaxed font-medium opacity-70">
+              {isArabic 
+                ? "يتم تتبع الجرعات يومياً. يتم إعادة ضبط الجدول تلقائياً عند منتصف الليل لبدء بروتوكول جديد." 
+                : "Doses are tracked daily. The schedule resets automatically at midnight for the next protocol cycle."}
+            </p>
+          </section>
+        </div>
+
+        {/* Main: Medication Cards */}
+        <div className="xl:col-span-8">
+          {loading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="text-primary animate-spin" size={32} />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between px-2 mb-4">
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-on-surface-variant flex items-center gap-2">
+                  <Pill size={14} className="text-primary" /> {isArabic ? 'جدول الأدوية والمكملات اليومي' : 'MEDICATION_SCHEDULE_ACTIVE'}
+                </h3>
+                <span className="text-[9px] font-mono opacity-30 uppercase">{applicableMeds.length} Items Today</span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
+                {MEDICINE_SCHEDULE.map((med, mIdx) => {
+                  const isToday = med.frequency === 'daily' ||
+                    (med.weekDays && med.weekDays.includes(todayJS));
+
+                  if (!isToday && med.weekDays) return null;
+
+                  const completedCount = med.doses.filter(d => checks[`${med.id}_${d.idx}`]).length;
+                  const allDone = completedCount === med.doses.length;
+
+                  return (
+                    <motion.div key={med.id}
+                      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: mIdx * 0.1 }}
+                      className={cn(
+                        'bg-surface-container rounded-3xl border overflow-hidden shadow-xl transition-all duration-500',
+                        allDone ? 'border-primary/40 shadow-primary/10' : 'border-outline-variant/20'
+                      )}>
+                      <div 
+                        onClick={() => toggleExpand(med.id)}
+                        className={cn(
+                          'px-8 py-5 flex items-center justify-between border-b transition-colors duration-500 cursor-pointer hover:bg-on-surface/[0.02]',
+                          allDone ? 'border-primary/20 bg-primary/5' : 'border-outline-variant/20'
+                        )}>
+                        <div className="flex items-center gap-4">
+                          <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0', med.colorBg, med.colorText)}>
+                            <med.Icon size={22} />
+                          </div>
+                          <div className={isArabic ? 'text-right' : 'text-left'}>
+                            <h2 className="font-bold text-lg leading-tight">{isArabic ? med.nameLine1 : med.id.toUpperCase()}</h2>
+                            <p className="text-[10px] text-on-surface-variant tracking-wide mt-0.5">{isArabic ? med.nameLine2 : med.nameLine2}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-2">
+                            <span className={cn('text-sm font-bold', allDone ? 'text-primary' : 'text-on-surface-variant')}>{completedCount}/{med.doses.length}</span>
+                            {allDone && <CheckCircle2 size={18} className="text-primary" />}
+                          </div>
+                          <motion.div animate={{ rotate: expandedMedIds.includes(med.id) ? 180 : 0 }}>
+                            <ChevronDown size={18} className="opacity-40" />
+                          </motion.div>
+                        </div>
+                      </div>
+                      <AnimatePresence>
+                        {expandedMedIds.includes(med.id) && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3, ease: 'easeInOut' }}
+                            className="overflow-hidden"
+                          >
+                            <div className="p-6 space-y-3 pt-2">
+                              {med.doses.map((dose) => {
+                                const key = `${med.id}_${dose.idx}`;
+                                const isChecked = checks[key] ?? false;
+                                const isLoadingDose = toggling === key;
+                                const enNotes: any = { 0: 'First Dose', 1: 'Second Dose', 2: 'Third Dose' };
+                                return (
+                                  <button key={dose.idx} onClick={() => toggleDose(med.id, dose.idx)} disabled={isLoadingDose}
+                                    className={cn('w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all', isArabic ? 'flex-row-reverse' : 'flex-row', isChecked ? 'border-primary/40 bg-primary/5' : 'border-outline-variant/30')}>
+                                    <div className={cn('w-6 h-6 rounded-lg border-2 flex items-center justify-center', isChecked ? 'bg-primary border-primary' : 'border-outline-variant')}>
+                                      {isLoadingDose ? <Loader2 size={12} className="animate-spin" /> : (isChecked && <CheckCircle2 size={14} className="text-white" />)}
+                                    </div>
+                                    <div className="flex-1 text-sm font-bold">{isArabic ? dose.note : enNotes[dose.idx] || dose.note}</div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
-      </div>
-
-      <div className="col-span-12 lg:col-span-4 space-y-8">
-        <section className="bg-surface-container rounded-3xl p-8 border-t-4 border-primary shadow-2xl">
-          <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-6 flex items-center gap-3">
-            <Plus size={16} className="text-primary" />
-            Log New Entry
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-widest">Medication</label>
-              <input
-                className="w-full recessed-input text-sm py-3 px-4"
-                placeholder="e.g. Fortymox Drops"
-                value={form.medication}
-                onChange={e => setForm(f => ({ ...f, medication: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-widest">Dose</label>
-              <input
-                className="w-full recessed-input text-sm py-3 px-4"
-                placeholder="e.g. 5 drops / 1 tablet"
-                value={form.dose}
-                onChange={e => setForm(f => ({ ...f, dose: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-widest">Time</label>
-              <input
-                type="time"
-                className="w-full recessed-input text-sm py-3 px-4"
-                value={form.time}
-                onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase text-on-surface-variant/70 tracking-widest">Notes</label>
-              <input
-                className="w-full recessed-input text-sm py-3 px-4"
-                placeholder="Optional notes..."
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full os-gradient-btn py-4 rounded-2xl uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-              {submitting ? 'Saving...' : 'Log Entry'}
-            </button>
-          </form>
-        </section>
-
-        <section className="bg-gradient-to-br from-surface-container-highest to-surface-container p-8 rounded-3xl relative overflow-hidden border border-outline-variant/20">
-          <div className="relative z-10">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-2">Total Logged Today</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-headline font-black">{entries.length}</span>
-              <span className="text-xl font-bold text-on-surface-variant">entries</span>
-            </div>
-            <p className="text-xs text-on-surface-variant mt-4 leading-relaxed">All data persisted securely in Firebase Firestore.</p>
-          </div>
-          <div className="absolute -right-12 -bottom-12 w-40 h-40 bg-primary/10 rounded-full blur-3xl" />
-        </section>
       </div>
     </div>
   );
 };
 
+
+
+
 // --- View: Financial ---
 
-const FinancialView = ({ userId }: { userId: string }) => {
+const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean }) => {
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
+  const [accounts, setAccounts] = useState<AccountSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState('EGP');
-  const [form, setForm] = useState({ type: 'Expense', amount: '', source: '', date: new Date().toISOString().split('T')[0] });
+  const [form, setForm] = useState({ 
+    type: 'Expense', 
+    amount: '', 
+    source: '', 
+    date: new Date().toISOString().split('T')[0],
+    accountId: 'CASH' 
+  });
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [tempBalance, setTempBalance] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
+
+
+
+
+  const PRESET_ACCOUNTS = [
+    { id: 'CASH', nameAr: 'كاش', nameEn: 'Cash' },
+    { id: 'VODAFONE', nameAr: 'فودافون كاش', nameEn: 'Vodafone Cash' },
+    { id: 'NBE', nameAr: 'البنك الأهلي', nameEn: 'National Bank' },
+    { id: 'ALEX', nameAr: 'بنك إسكندرية', nameEn: 'Alex Bank' },
+  ];
 
   useEffect(() => {
-    const q = query(
-      collection(db, `users/${userId}/financial`),
-      orderBy('createdAt', 'desc')
-    );
-    const unsub = onSnapshot(q, (snap) => {
+    // Listen to Financial Entries
+    const qEntries = query(collection(db, `users/${userId}/financial`), orderBy('createdAt', 'desc'));
+    const unsubEntries = onSnapshot(qEntries, (snap) => {
       setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as FinancialEntry)));
       setLoading(false);
     });
-    return () => unsub();
+
+    // Listen to Accounts
+    const qAccounts = query(collection(db, `users/${userId}/accounts`));
+    const unsubAccounts = onSnapshot(qAccounts, async (snap) => {
+      if (snap.empty) {
+        // Seed initial accounts if they don't exist
+        for (const p of PRESET_ACCOUNTS) {
+          await setDoc(doc(db, `users/${userId}/accounts`, p.id), { ...p, balance: 0 });
+        }
+      } else {
+        setAccounts(snap.docs.map(d => ({ id: d.id, ...d.data() } as AccountSnapshot)));
+      }
+    });
+
+    return () => { unsubEntries(); unsubAccounts(); };
   }, [userId]);
+
+  const handleManualBalanceUpdate = async (id: string) => {
+    const val = parseFloat(tempBalance);
+    if (isNaN(val)) return;
+    try {
+      await setDoc(doc(db, `users/${userId}/accounts`, id), { balance: val }, { merge: true });
+      setEditingAccountId(null);
+    } catch (err) {
+
+      console.error(err);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.amount || !form.source) return;
     setSubmitting(true);
     try {
-      await addDoc(collection(db, `users/${userId}/financial`), {
-        type: form.type,
-        amount: parseFloat(form.amount),
-        currency: selectedCurrency,
-        source: form.source,
-        date: form.date,
-        createdAt: serverTimestamp(),
+      const amountValue = parseFloat(form.amount);
+      
+      await runTransaction(db, async (transaction) => {
+        // --- 1. READS (GROUND TRUTH) ---
+        const logRef = editingId ? doc(db, `users/${userId}/financial`, editingId) : doc(collection(db, `users/${userId}/financial`));
+        let oldEntryData: any = null;
+        if (editingId) {
+          const oldLogDoc = await transaction.get(logRef);
+          if (oldLogDoc.exists()) oldEntryData = oldLogDoc.data();
+        }
+
+        const newAccountRef = doc(db, `users/${userId}/accounts`, form.accountId);
+        const newAccountDoc = await transaction.get(newAccountRef);
+        if (!newAccountDoc.exists()) throw new Error("Account does not exist!");
+        
+        let oldAccountDoc = null;
+        if (oldEntryData && oldEntryData.accountId !== form.accountId) {
+          const oldAccountRef = doc(db, `users/${userId}/accounts`, oldEntryData.accountId);
+          oldAccountDoc = await transaction.get(oldAccountRef);
+        }
+
+        // --- 2. CALCULATIONS (IN-MEMORY) ---
+        let newBalanceForNewAcc = newAccountDoc.data().balance || 0;
+        let finalOldAccBalance = null;
+        let oldAccId = oldEntryData?.accountId;
+
+        // A. Reverse Old Impact on Old Account
+        if (oldEntryData && oldEntryData.type !== 'Expected') {
+          const isOldDeduction = oldEntryData.type === 'Expense' || oldEntryData.type === 'Debt (Owed To Someone)';
+          const reversalAmount = isOldDeduction ? oldEntryData.amount : -oldEntryData.amount;
+          
+          if (oldAccId === form.accountId) {
+            newBalanceForNewAcc += reversalAmount;
+          } else if (oldAccountDoc && oldAccountDoc.exists()) {
+            finalOldAccBalance = (oldAccountDoc.data().balance || 0) + reversalAmount;
+          }
+        }
+
+        // B. Apply New Impact on New Account
+        if (form.type !== 'Expected') {
+          const isNewDeduction = form.type === 'Expense' || form.type === 'Debt (Owed To Someone)';
+          newBalanceForNewAcc = isNewDeduction ? newBalanceForNewAcc - amountValue : newBalanceForNewAcc + amountValue;
+        }
+
+        // --- 3. WRITES (ATOMIC) ---
+        // Update New Account
+        transaction.update(newAccountRef, { balance: newBalanceForNewAcc });
+        
+        // Update Old Account (if it was different)
+        if (finalOldAccBalance !== null && oldAccId && oldAccId !== form.accountId) {
+          transaction.update(doc(db, `users/${userId}/accounts`, oldAccId), { balance: finalOldAccBalance });
+        }
+
+        // Record/Update Log
+        const logData = {
+          type: form.type,
+          amount: amountValue,
+          currency: selectedCurrency,
+          source: form.source,
+          date: form.date,
+          accountId: form.accountId,
+          lastModified: serverTimestamp(),
+          ...(editingId ? {} : { createdAt: serverTimestamp() })
+        };
+        transaction.set(logRef, logData, { merge: true });
       });
-      setForm({ type: 'Expense', amount: '', source: '', date: new Date().toISOString().split('T')[0] });
+
+
+
+      setForm({ ...form, amount: '', source: '', date: new Date().toISOString().split('T')[0] });
+      setEditingId(null);
+      setIsFormOpen(false);
     } catch (err) {
+
       console.error(err);
     }
     setSubmitting(false);
   };
 
+
   const handleDelete = async (id: string) => {
-    await deleteDoc(doc(db, `users/${userId}/financial`, id));
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    
+    // Captured local values to avoid stale closure issues
+    const entryType = entry.type;
+    const entryAmount = entry.amount;
+    const entryAccountId = entry.accountId; // Might be undefined for old records
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const isDeduction = entryType === 'Expense' || entryType === 'Debt (Owed To Someone)';
+        
+        // 1. Get the account (if it exists in the record AND is NOT Expected)
+        if (entryAccountId && entryType !== 'Expected') {
+          const accountRef = doc(db, `users/${userId}/accounts`, entryAccountId);
+          const accountDoc = await transaction.get(accountRef);
+          
+          // 2. Return the money to the account (Reverse Logic)
+          if (accountDoc.exists()) {
+            const currentBalance = accountDoc.data().balance || 0;
+            const newBalance = isDeduction ? currentBalance + entryAmount : currentBalance - entryAmount;
+            transaction.update(accountRef, { balance: newBalance });
+          }
+        }
+
+        // 3. Delete the log (Always)
+        transaction.delete(doc(db, `users/${userId}/financial`, id));
+      });
+    } catch (err) {
+      console.error("Delete Error Trace:", err);
+    }
   };
 
-  const totalExpenses = entries.filter(e => e.type === 'Expense').reduce((acc, e) => acc + e.amount, 0);
-  const totalIncome = entries.filter(e => e.type.startsWith('Income')).reduce((acc, e) => acc + e.amount, 0);
+  const totalExpenses = entries.filter(e => e.type === 'Expense' || e.type === 'Debt (Owed To Someone)').reduce((acc, e) => acc + e.amount, 0);
+  const totalIncome = entries.filter(e => e.type.startsWith('Income') || e.type === 'Debt (Owed To Me)').reduce((acc, e) => acc + e.amount, 0);
+  const netWorth = accounts.reduce((acc, a) => acc + a.balance, 0);
 
   return (
     <div className="space-y-8 h-full overflow-y-auto no-scrollbar pb-20">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 bg-surface-container rounded-3xl p-10 border border-outline-variant/20 relative overflow-hidden group shadow-2xl">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-primary/5 rounded-full blur-[100px] -mr-40 -mt-40" />
-          <div className="relative z-10">
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-on-surface-variant">Financial Overview</span>
-            <h1 className="text-5xl md:text-6xl font-headline font-bold mt-4 tracking-tight">Precision Tracking</h1>
-            <div className="flex flex-wrap gap-12 mt-12">
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-red-400">Total Expenses</p>
-                <p className="text-4xl font-headline font-extrabold">{totalExpenses.toLocaleString('en-EG', { minimumFractionDigits: 2 })} <span className="text-xl font-medium opacity-40">EGP</span></p>
+      {/* Account Snapshots */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6" dir={isArabic ? 'rtl' : 'ltr'}>
+        {PRESET_ACCOUNTS.map(p => {
+          const acc = accounts.find(a => a.id === p.id);
+          const isEditing = editingAccountId === p.id;
+          return (
+            <div key={p.id} className="bg-surface-container rounded-3xl p-8 border border-outline-variant/20 shadow-xl relative overflow-hidden group hover:border-primary/40 transition-all">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-100 transition-opacity">
+                <Landmark size={18} className="text-primary" />
               </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Total Income</p>
-                <p className="text-4xl font-headline font-extrabold">{totalIncome.toLocaleString('en-EG', { minimumFractionDigits: 2 })} <span className="text-xl font-medium opacity-40">EGP</span></p>
-              </div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-on-surface-variant mb-6 group-hover:text-primary transition-colors">
+                {isArabic ? p.nameAr : p.nameEn}
+              </p>
+              
+              {isEditing ? (
+                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                  <input
+                    autoFocus
+                    className="w-full recessed-input text-xl font-headline font-black py-2 px-3 bg-primary-container/10"
+                    placeholder="0"
+                    value={tempBalance}
+                    onChange={e => setTempBalance(e.target.value)}
+                    onBlur={() => handleManualBalanceUpdate(p.id)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleManualBalanceUpdate(p.id)}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-between group/val cursor-pointer" onClick={() => { setEditingAccountId(p.id); setTempBalance(acc?.balance.toString() || '0'); }}>
+                  <h3 className="text-3xl font-headline font-black text-on-surface">
+                    {acc?.balance.toLocaleString() ?? '—'}
+                    <span className="text-[10px] font-medium ml-2 opacity-30">EGP</span>
+                  </h3>
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover/val:opacity-100 transition-opacity">
+                    <Sparkles size={14} className="text-primary" />
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-4 flex flex-col gap-4">
-          {[
-            { label: 'Net Balance', val: (totalIncome - totalExpenses).toLocaleString('en-EG', { minimumFractionDigits: 2 }), color: 'text-green-400', bg: 'bg-green-400/10', icon: Wallet },
-            { label: 'Total Income', val: totalIncome.toLocaleString('en-EG', { minimumFractionDigits: 2 }), color: 'text-primary', bg: 'bg-primary/10', icon: ArrowLeftRight },
-            { label: 'Total Expenses', val: totalExpenses.toLocaleString('en-EG', { minimumFractionDigits: 2 }), color: 'text-red-400', bg: 'bg-red-400/10', icon: CreditCard },
-            { label: 'Transactions', val: entries.length.toString(), color: 'text-blue-400', bg: 'bg-blue-400/10', icon: BarChart3 },
-          ].map((item, i) => (
-            <motion.div
-              key={i}
-              whileHover={{ x: 5 }}
-              className="bg-surface-container-high rounded-2xl p-5 border border-outline-variant/30 flex items-center justify-between hover:bg-surface-bright transition-all group cursor-pointer"
-            >
-              <div className="flex items-center gap-4">
-                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", item.bg, item.color)}>
-                  <item.icon size={24} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest">{item.label}</p>
-                  <p className="text-xl font-headline font-bold">{item.val}</p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-            </motion.div>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 bg-surface-container rounded-3xl border border-outline-variant/20 overflow-hidden shadow-2xl">
-          <div className="px-8 py-5 border-b border-outline-variant/20 bg-surface-variant/20 flex justify-between items-center">
-            <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">NEW_ENTRY_PROTOCOL</h2>
-            <span className="text-[9px] font-mono text-primary/60">Firebase Backed</span>
-          </div>
-          <div className="p-10">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">Transaction Type</label>
-                  <select
-                    className="w-full recessed-input text-sm py-4 px-5 appearance-none cursor-pointer"
-                    value={form.type}
-                    onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                  >
-                    <option>Expense</option>
-                    <option>Income (Salary)</option>
-                    <option>Income (Freelance)</option>
-                    <option>Debt (Owed To Me)</option>
-                  </select>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        <div className="xl:col-span-8 space-y-8">
+          {/* New Transaction Ledger Entry */}
+          <section ref={formRef} className="bg-surface-container rounded-3xl border border-outline-variant/20 overflow-hidden shadow-2xl transition-all">
+            <button 
+              onClick={() => setIsFormOpen(!isFormOpen)}
+              className="w-full px-8 py-5 border-b border-outline-variant/20 bg-surface-variant/20 flex justify-between items-center hover:bg-surface-variant/30 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-all", isFormOpen ? "bg-primary text-white" : "bg-primary/10 text-primary")}>
+                  {editingId ? <Edit2 size={18} /> : <PlusCircle size={20} />}
                 </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">Currency</label>
-                  <div className="flex gap-2">
-                    {['EGP', 'SAR', 'USD', 'AED'].map(c => (
-                      <button key={c} type="button" onClick={() => setSelectedCurrency(c)} className={cn(
-                        "flex-1 py-3 rounded-xl font-bold text-[10px] transition-all",
-                        selectedCurrency === c ? "bg-primary text-surface" : "bg-surface-container-highest text-on-surface-variant hover:bg-surface-bright"
-                      )}>{c}</button>
-                    ))}
+                <h2 className={cn("text-[10px] font-bold uppercase tracking-[0.3em] transition-colors", isFormOpen ? "text-primary" : "text-on-surface-variant")}>
+                  {editingId ? (isArabic ? 'تعديل المعاملة الجاري' : 'REFINING_TRANSACTION') : (isArabic ? 'بروتوكول إدخال جديد' : 'NEW_TRANSACTION_ENTRY')}
+                </h2>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="hidden sm:flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[9px] font-mono text-primary/60 uppercase">Manual Override Ready</span>
+                </div>
+                <motion.div animate={{ rotate: isFormOpen ? 180 : 0 }}>
+                  <ChevronDown size={18} className="opacity-40" />
+                </motion.div>
+              </div>
+            </button>
+            <AnimatePresence>
+              {isFormOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-10">
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">
+                            {isArabic ? 'المحفظة' : 'WALLET / BANK'}
+                          </label>
+                          <OSSelect
+                            value={form.accountId}
+                            onChange={(val: string) => setForm(f => ({ ...f, accountId: val }))}
+                            isArabic={isArabic}
+                            options={PRESET_ACCOUNTS.map(p => ({ value: p.id, label: p.nameEn, labelAr: p.nameAr, icon: Landmark }))}
+                          />
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">
+                            {isArabic ? 'نوع المعاملة' : 'TRANSACTION_TYPE'}
+                          </label>
+                          <OSSelect
+                            value={form.type}
+                            onChange={(val: string) => setForm(f => ({ ...f, type: val }))}
+                            isArabic={isArabic}
+                            options={[
+                              { value: 'Expense', label: 'Expense', labelAr: 'مصروف', icon: CreditCard },
+                              { value: 'Income (Salary)', label: 'Salary', labelAr: 'دخل (راتب)', icon: ArrowLeftRight },
+                              { value: 'Income (Freelance)', label: 'Freelance', labelAr: 'دخل (عمل حر)', icon: Zap },
+                              { value: 'Debt (Owed To Me)', label: 'Owed To Me', labelAr: 'دين (لي)', icon: UserIcon },
+                              { value: 'Debt (Owed To Someone)', label: 'Owed To Someone', labelAr: 'دين (علي)', icon: ShieldAlert },
+                              { value: 'Expected', label: 'Expected', labelAr: 'متوقع', icon: Clock },
+                            ]}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">
+                          {isArabic ? 'المصدر / الوجهة' : 'Description'}
+                        </label>
+                        <input
+                          className="w-full recessed-input text-sm py-4 px-5"
+                          placeholder={isArabic ? 'التفاصيل...' : 'Specify source...'}
+                          value={form.source}
+                          onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
+                          required
+                          dir={isArabic ? 'rtl' : 'ltr'}
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-surface-container-high rounded-2xl border border-outline-variant/10 shadow-inner">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">
+                            {isArabic ? 'التاريخ الفعلي' : 'EFFECTIVE_DATE'}
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full recessed-input text-xs py-4 px-5"
+                            value={form.date}
+                            onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">
+                            {isArabic ? 'المبلغ الفعلي والعملة' : 'MONETARY_VALUE_&_CURRENCY'}
+                          </label>
+                          <div className="flex gap-4">
+                            <OSSelect
+                              className="min-w-[160px]"
+                              value={selectedCurrency}
+                              onChange={setSelectedCurrency}
+                              isArabic={isArabic}
+                              options={[
+                                { value: 'EGP', label: 'EGP', labelAr: 'جنيه مصري' },
+                                { value: 'SAR', label: 'SAR', labelAr: 'ريال سعودي' },
+                                { value: 'USD', label: 'USD', labelAr: 'دولار أمريكي' },
+                                { value: 'AED', label: 'AED', labelAr: 'درهم إماراتي' },
+                              ]}
+                            />
+                            <input
+                              type="number"
+                              className="flex-1 recessed-input text-sm font-bold py-4 px-6 no-spinner"
+                              placeholder="0.00"
+                              value={form.amount}
+                              onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                       <div className="flex gap-4">
+                        <button
+                          type="submit"
+                          disabled={submitting}
+                          className="flex-1 py-6 rounded-2xl bg-primary text-surface font-black text-xs tracking-[0.4em] uppercase shadow-2xl shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-4 disabled:opacity-50"
+                        >
+                          {submitting ? <Loader2 size={24} className="animate-spin" /> : (editingId ? <Edit2 size={20} /> : <ShieldAlert size={20} />)}
+                          {submitting ? (isArabic ? 'جارٍ المزامنة...' : 'SYNCING...') : (editingId ? (isArabic ? 'حفظ التعديلات' : 'SAVE_CHANGES') : (isArabic ? 'تأكيد العملية' : 'EXECUTE_TRANSACTION'))}
+                        </button>
+                        {editingId && (
+                          <button
+                            type="button"
+                            onClick={() => { setEditingId(null); setIsFormOpen(false); setForm({ ...form, amount: '', source: '', date: new Date().toISOString().split('T')[0] }); }}
+                            className="px-6 rounded-2xl bg-outline-variant/10 text-on-surface-variant font-bold text-[10px] tracking-widest uppercase hover:bg-outline-variant/20 transition-all font-mono"
+                          >
+                            {isArabic ? 'إلغاء' : 'CANCEL'}
+                          </button>
+                        )}
+                      </div>
+                    </form>
                   </div>
-                </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+
+
+          {/* New Professional Ledger List */}
+          <section className="bg-surface-container rounded-3xl border border-outline-variant/20 overflow-hidden shadow-2xl">
+            <div className="px-8 py-6 border-b border-outline-variant/20 bg-surface-variant/10 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <BarChart3 size={16} className="text-primary" />
+                <h3 className="text-[10px] font-bold tracking-[0.3em] uppercase">{isArabic ? 'سجل العمليات المعاصر' : 'MODERN_TRANSACTION_LEDGER'}</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">Source / Destination</label>
-                  <input
-                    className="w-full recessed-input text-sm py-4 px-5"
-                    placeholder="From: Alex Bank -> To: Freelancer"
-                    value={form.source}
-                    onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
-                    required
-                  />
+              <span className="text-[9px] font-mono text-on-surface-variant/40">LIMIT: 30 ENTRIES</span>
+            </div>
+            <div className="p-2 space-y-1">
+              {loading ? (
+                <div className="flex items-center justify-center py-20"><Loader2 className="text-primary animate-spin" size={32} /></div>
+              ) : entries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 opacity-40">
+                  <Landmark size={48} className="text-primary mb-4" />
+                  <p className="text-sm font-black tracking-widest">{isArabic ? 'لا توجد بيانات' : 'CLEAN_SLATE'}</p>
                 </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">Date</label>
-                  <input
-                    type="date"
-                    className="w-full recessed-input text-sm py-4 px-5"
-                    value={form.date}
-                    onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-widest px-1">Amount</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    className="w-full recessed-input text-4xl font-headline font-black py-6 px-6 text-right pr-20"
-                    placeholder="0.00"
-                    value={form.amount}
-                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                    required
-                  />
-                  <span className="absolute right-6 top-1/2 -translate-y-1/2 font-bold text-on-surface-variant/40">{selectedCurrency}</span>
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full os-gradient-btn py-5 rounded-2xl uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                {submitting ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}
-                {submitting ? 'Saving...' : 'Commit Transaction'}
-              </button>
-            </form>
-          </div>
+              ) : entries.slice(0, 30).map((entry) => {
+                const acc = PRESET_ACCOUNTS.find(a => a.id === entry.accountId);
+                const isExpense = entry.type === 'Expense' || entry.type === 'Debt (Owed To Someone)';
+                const isExpected = entry.type === 'Expected';
+                const isDebtMe = entry.type === 'Debt (Owed To Me)';
+                
+                return (
+                  <div key={entry.id} className="group p-5 hover:bg-surface-bright/50 rounded-2xl transition-all flex items-center justify-between border border-transparent hover:border-outline-variant/10">
+                    <div className="flex items-center gap-6 overflow-hidden">
+                      <div className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-105",
+                        isExpense ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                        isExpected ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                        isDebtMe ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                        'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      )}>
+                        {isExpense ? <ShieldAlert size={22} /> : isExpected ? <Clock size={22} /> : isDebtMe ? <UserIcon size={22} /> : <ArrowLeftRight size={22} />}
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-base font-bold truncate group-hover:text-primary transition-colors">{entry.source}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">{isArabic ? acc?.nameAr : acc?.nameEn}</span>
+                          <span className="w-1 h-1 rounded-full bg-outline-variant" />
+                          <span className="text-[9px] text-on-surface-variant/40 font-mono italic">{entry.date}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-8">
+                       <div className="text-right hidden sm:block">
+                        <div className={cn(
+                          "text-xl font-headline font-black",
+                          isExpense ? 'text-red-400' : isExpected ? 'text-amber-500' : isDebtMe ? 'text-indigo-400' : 'text-emerald-400'
+                        )}>
+                          {isExpense ? '-' : '+'}{entry.amount.toLocaleString()} <span className="text-[10px] opacity-40">{entry.currency}</span>
+                        </div>
+                        <p className="text-[8px] font-bold text-on-surface-variant/30 uppercase tracking-[0.3em] mt-0.5">
+                          {isArabic 
+                            ? (entry.type === 'Debt (Owed To Me)' ? 'دين لي — أصل' : entry.type === 'Debt (Owed To Someone)' ? 'دين علي — التزام' : entry.type === 'Expense' ? 'مصروف جاري' : entry.type === 'Expected' ? 'متوقع مستقبلاً' : 'دخل وارد')
+                            : entry.type.replace('Debt (', '').replace(')', '')}
+                        </p>
+                      </div>
+                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                        <button
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setEditingId(entry.id); 
+                            setForm({ 
+                              type: entry.type, 
+                              amount: entry.amount.toString(), 
+                              source: entry.source, 
+                              date: entry.date, 
+                              accountId: entry.accountId 
+                            });
+                            setSelectedCurrency(entry.currency);
+                            setIsFormOpen(true);
+                            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }}
+                          className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center transition-all hover:bg-primary hover:text-white active:scale-90 shadow-sm"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
+                          className="w-10 h-10 rounded-xl bg-red-400/15 text-red-500 flex items-center justify-center transition-all hover:bg-red-500 hover:text-white active:scale-90 shadow-sm"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+            </div>
+          </section>
         </div>
 
-        <div className="lg:col-span-4 flex flex-col gap-8">
-          <div className="bg-surface-container rounded-3xl border border-outline-variant/20 flex-1 flex flex-col shadow-2xl">
-            <div className="px-8 py-5 border-b border-outline-variant/20 flex justify-between items-center">
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">RECENT_TRANSACTIONS</h2>
-              <Repeat size={16} className="text-on-surface-variant" />
-            </div>
-            <div className="p-6 space-y-4 flex-1 overflow-y-auto no-scrollbar">
-              {loading ? (
-                <div className="flex items-center justify-center py-10"><Loader2 className="text-primary animate-spin" size={24} /></div>
-              ) : entries.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 opacity-40">
-                  <Landmark size={32} className="text-primary mb-3" />
-                  <p className="text-xs font-bold uppercase tracking-widest">No transactions yet</p>
+        <div className="xl:col-span-4 space-y-8">
+          <section className="bg-surface-container rounded-3xl p-10 border border-outline-variant/20 relative overflow-hidden group shadow-2xl">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-primary/5 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="p-4 rounded-3xl bg-primary/10 text-primary shadow-xl shadow-primary/5">
+                  <Wallet size={32} />
                 </div>
-              ) : entries.slice(0, 8).map((entry, i) => (
-                <div key={entry.id} className={cn("p-4 bg-black/20 rounded-xl flex items-center justify-between border-l-4 group", entry.type === 'Expense' ? 'border-red-500' : 'border-primary')}>
-                  <div className="flex-1 overflow-hidden">
-                    <p className="text-xs font-bold truncate">{entry.source}</p>
-                    <p className="text-[9px] text-on-surface-variant uppercase tracking-widest">{entry.type} • {entry.date}</p>
+                <div>
+                  <h1 className="text-[10px] font-bold tracking-[0.4em] text-on-surface-variant uppercase mb-1">
+                    {isArabic ? 'إجمالي الثروة الحالية' : 'NET_ASSET_VALUE'}
+                  </h1>
+                  <p className="text-[8px] font-bold text-emerald-400 tracking-[0.2em] uppercase">Liquidity Secured</p>
+                </div>
+              </div>
+              
+              <div className="text-6xl font-headline font-black tracking-tighter mb-10 overflow-hidden text-ellipsis">
+                {netWorth.toLocaleString('en-EG', { minimumFractionDigits: 2 })}
+                <span className="text-sm font-bold opacity-30 ml-3">EGP</span>
+              </div>
+            </div>
+            
+            <div className="space-y-4 relative z-10 pt-8 border-t border-outline-variant/10">
+              <h4 className="text-[10px] font-black tracking-[0.3em] text-on-surface-variant/40 mb-2 uppercase">Financial Pulse HUD</h4>
+              {[
+                { l: isArabic ? 'التدفقات الداخلة' : 'TOTAL_INFLOW', v: totalIncome, c: 'text-emerald-400', i: ArrowLeftRight },
+                { l: isArabic ? 'التدفقات الخارجة' : 'TOTAL_OUTFLOW', v: totalExpenses, c: 'text-red-400', i: CreditCard },
+                { l: isArabic ? 'التوازن المتوقع (Net)' : 'PROJECTED_NET', v: totalIncome - totalExpenses, c: (totalIncome - totalExpenses) >= 0 ? 'text-primary' : 'text-red-400', i: Sparkles },
+                { l: isArabic ? 'الديون النشطة (علي)' : 'ACTIVE_LIABILITIES', v: entries.filter(e => e.type === 'Debt (Owed To Someone)').reduce((acc, e) => acc + e.amount, 0), c: 'text-amber-500', i: ShieldAlert },
+              ].map((s, i) => (
+                <div key={i} className="flex justify-between items-center p-5 rounded-2xl bg-surface-variant/20 hover:bg-surface-variant/30 transition-all border border-transparent hover:border-outline-variant/10">
+                  <div className="flex items-center gap-4">
+                     <s.i size={18} className={s.c} />
+                     <span className="text-[10px] font-bold text-on-surface-variant/70 tracking-widest uppercase">{s.l}</span>
                   </div>
-                  <div className="flex items-center gap-2 ml-2">
-                    <p className={cn("text-sm font-bold", entry.type === 'Expense' ? 'text-red-400' : 'text-primary')}>
-                      {entry.type === 'Expense' ? '-' : '+'}{entry.amount.toLocaleString()} {entry.currency}
-                    </p>
-                    <button
-                      onClick={() => handleDelete(entry.id)}
-                      className="text-on-surface-variant hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  <span className={cn("text-xl font-headline font-black", s.c)}>{s.v.toLocaleString()}</span>
                 </div>
               ))}
             </div>
-          </div>
+
+            {/* Projected Outlook Card */}
+            <div className="mt-8 p-6 rounded-2xl bg-amber-500/5 border border-amber-500/10">
+                 <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <Clock size={16} className="text-amber-500" />
+                        <span className="text-[10px] font-bold tracking-widest text-amber-500 uppercase">{isArabic ? 'التوقعات المستقبلية' : 'PROJECTED_OUTLOOK'}</span>
+                    </div>
+                    <span className="text-[9px] font-mono opacity-40">ALPHA_v1</span>
+                 </div>
+                 {(() => {
+                    const expectedIn = entries.filter(e => e.type === 'Expected' && (e.source.toLowerCase().includes('دخل') || e.source.toLowerCase().includes('salary') || e.source.toLowerCase().includes('freelance'))).reduce((a, e) => a + e.amount, 0);
+                    const expectedOut = entries.filter(e => e.type === 'Expected' && !(e.source.toLowerCase().includes('دخل') || e.source.toLowerCase().includes('salary') || e.source.toLowerCase().includes('freelance'))).reduce((a, e) => a + e.amount, 0);
+                    const projection = netWorth + expectedIn - expectedOut;
+                    return (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-baseline">
+                                <span className="text-[9px] text-on-surface-variant font-bold uppercase">{isArabic ? 'الثروة المتوقعة بنهاية الفترة' : 'ESTIMATED_MONTH_END'}</span>
+                                <span className={cn("text-2xl font-black font-headline", projection >= netWorth ? "text-primary" : "text-amber-500")}>
+                                    {projection.toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-on-surface/5 rounded-full overflow-hidden">
+                                <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: '100%' }}
+                                    className="h-full bg-gradient-to-r from-amber-500/40 to-primary"
+                                />
+                            </div>
+                        </div>
+                    );
+                 })()}
+            </div>
+          </section>
+
+
+          <section className="bg-primary/10 rounded-3xl p-8 border border-primary/20">
+            <h4 className="text-[10px] font-black tracking-[0.2em] text-primary uppercase mb-4">Financial Insight</h4>
+            <p className="text-sm leading-relaxed font-medium">
+              {isArabic 
+                ? "يتم موازنة المحفظة تلقائياً عند تنفيذ معاملة. المس مبالغ البنوك أعلاه لتعديلها يدوياً إذا لزم الأمر." 
+                : "Balances update in real-time. Tap the account values above to manually override snapshots when needed."}
+            </p>
+          </section>
         </div>
       </div>
     </div>
@@ -764,10 +1284,12 @@ const FinancialView = ({ userId }: { userId: string }) => {
 
 // --- View: Nutrition ---
 
-const NutritionView = ({ userId }: { userId: string }) => {
+const NutritionView = ({ userId, isArabic }: { userId: string, isArabic: boolean }) => {
   const [entries, setEntries] = useState<NutritionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+
   const [form, setForm] = useState({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '' });
 
   useEffect(() => {
@@ -811,7 +1333,45 @@ const NutritionView = ({ userId }: { userId: string }) => {
     BREAKFAST: Apple,
     LUNCH: Pizza,
     DINNER: Utensils,
+    PRE_WORKOUT: Flame,
+    INTRA_WORKOUT: Zap,
+    POST_WORKOUT: CheckCircle2,
     SNACK: Coffee,
+    GENERAL: Activity,
+  };
+
+  const MEAL_ORDER: Record<string, number> = {
+    BREAKFAST: 1,
+    LUNCH: 2,
+    PRE_WORKOUT: 3,
+    INTRA_WORKOUT: 4,
+    POST_WORKOUT: 5,
+    SNACK: 6,
+    GENERAL: 7,
+  };
+
+  const sortedEntries = [...entries].sort((a, b) => {
+    const orderA = MEAL_ORDER[a.meal] || 99;
+    const orderB = MEAL_ORDER[b.meal] || 99;
+    if (orderA !== orderB) return orderA - orderB;
+    // Secondary sort by creation time (newest inside category)
+    const timeA = a.createdAt?.seconds || 0;
+    const timeB = b.createdAt?.seconds || 0;
+    return timeB - timeA;
+  });
+
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
+    BREAKFAST: true,
+    LUNCH: true,
+    PRE_WORKOUT: true,
+    INTRA_WORKOUT: true,
+    POST_WORKOUT: true,
+    SNACK: true,
+    GENERAL: true
+  });
+
+  const toggleCategory = (cat: string) => {
+    setOpenCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
   };
 
   const totals = entries.reduce((acc, e) => ({
@@ -822,18 +1382,30 @@ const NutritionView = ({ userId }: { userId: string }) => {
   }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
 
   const macros = [
-    { label: 'Calories', val: `${totals.calories}`, total: '2500', percent: Math.min(Math.round(totals.calories / 25), 100), unit: 'kcal' },
-    { label: 'Protein', val: `${totals.protein}g`, total: '180g', percent: Math.min(Math.round(totals.protein / 1.8), 100), unit: '' },
-    { label: 'Carbs', val: `${totals.carbs}g`, total: '300g', percent: Math.min(Math.round(totals.carbs / 3), 100), unit: '' },
-    { label: 'Fat', val: `${totals.fat}g`, total: '70g', percent: Math.min(Math.round(totals.fat / 0.7), 100), unit: '' },
+    { label: isArabic ? 'سعرات' : 'Calories', val: `${totals.calories}`, total: '1935', percent: Math.min(Math.round(totals.calories / 19.35), 100), unit: 'kcal' },
+    { label: isArabic ? 'بروتين' : 'Protein', val: `${totals.protein}g`, total: '196g', percent: Math.min(Math.round(totals.protein / 1.96), 100), unit: '' },
+    { label: isArabic ? 'كارب' : 'Carbs', val: `${totals.carbs}g`, total: '175g', percent: Math.min(Math.round(totals.carbs / 1.75), 100), unit: '' },
+    { label: isArabic ? 'دهون' : 'Fat', val: `${totals.fat}g`, total: '47g', percent: Math.min(Math.round(totals.fat / 0.47), 100), unit: '' },
   ];
+
+  const mealEntries = Object.keys(MEAL_ORDER).map(mealKey => ({
+    key: mealKey,
+    label: isArabic ? (mealKey === 'BREAKFAST' ? 'الفطار' : mealKey === 'LUNCH' ? 'الغداء' : mealKey === 'PRE_WORKOUT' ? 'قبل التمرين' : mealKey === 'INTRA_WORKOUT' ? 'أثناء التمرين' : mealKey === 'POST_WORKOUT' ? 'بعد التمرين' : mealKey === 'SNACK' ? 'وجبة خفيفة' : 'عامة') : mealKey,
+    entries: sortedEntries.filter(e => e.meal === mealKey),
+    totalKcal: sortedEntries.filter(e => e.meal === mealKey).reduce((sum, e) => sum + e.calories, 0),
+    Icon: mealIconMap[mealKey] || Utensils
+  })).filter(group => group.entries.length > 0);
 
   return (
     <div className="space-y-10 h-full overflow-y-auto no-scrollbar pb-24">
       <section>
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-[10px] font-bold tracking-[0.3em] uppercase text-on-surface-variant">DAILY_NUTRITION_VITALS</h2>
-          <span className="text-[9px] font-mono text-primary/60 tracking-tighter">FIREBASE_REALTIME</span>
+          <h2 className="text-[10px] font-bold tracking-[0.3em] uppercase text-on-surface-variant">
+            {isArabic ? 'التغذية اليومية' : 'DAILY_NUTRITION_VITALS'}
+          </h2>
+          <span className="text-[9px] font-mono text-primary/60 tracking-tighter">
+            {isArabic ? 'مزامنة فورية' : 'FIREBASE_REALTIME'}
+          </span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {macros.map((macro, i) => (
@@ -841,10 +1413,10 @@ const NutritionView = ({ userId }: { userId: string }) => {
               key={i}
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
+              whileHover={{ backgroundColor: 'rgba(var(--md-sys-color-primary-rgb), 0.12)', scale: 1.02 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-surface-container rounded-3xl p-8 flex flex-col items-center justify-center space-y-6 border border-outline-variant/20 relative overflow-hidden group shadow-xl"
+              className="bg-surface-container rounded-3xl p-8 flex flex-col items-center justify-center space-y-6 border border-outline-variant/20 relative overflow-hidden group shadow-xl hover:bg-surface-container-high transition-all"
             >
-              <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="relative w-28 h-28">
                 <svg className="w-full h-full transform -rotate-90">
                   <circle className="text-surface-container-highest" cx="56" cy="56" fill="transparent" r="48" stroke="currentColor" strokeWidth="8" />
@@ -868,95 +1440,73 @@ const NutritionView = ({ userId }: { userId: string }) => {
       </section>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        <section className="xl:col-span-8 bg-surface-container rounded-3xl overflow-hidden border border-outline-variant/20 flex flex-col min-h-[500px] shadow-2xl">
-          <div className="p-8 border-b border-outline-variant/20 flex justify-between items-center bg-surface-variant/10">
-            <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase">CHRONOLOGICAL_FOOD_LOG</h3>
-            <span className="text-[10px] text-primary font-bold uppercase tracking-widest">{entries.length} entries</span>
-          </div>
-          <div className="flex-1 overflow-y-auto no-scrollbar">
-            {loading ? (
-              <div className="flex items-center justify-center py-20"><Loader2 className="text-primary animate-spin" size={32} /></div>
-            ) : entries.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 opacity-40">
-                <Utensils size={48} className="text-primary mb-4" />
-                <p className="text-sm font-bold uppercase tracking-widest">No food entries yet</p>
-              </div>
-            ) : entries.map((entry, i) => {
-              const Icon = mealIconMap[entry.meal] || Utensils;
-              return (
-                <div key={entry.id} className="p-6 flex items-center justify-between border-b border-outline-variant/10 hover:bg-surface-bright/20 transition-colors group cursor-pointer">
-                  <div className="flex items-center gap-5">
-                    <div className="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center text-primary/60">
-                      <Icon size={24} />
-                    </div>
-                    <div>
-                      <div className="text-base font-bold">{entry.name}</div>
-                      <div className="text-[10px] text-on-surface-variant tracking-[0.1em] uppercase font-bold mt-1">{entry.meal}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="text-base font-bold text-primary">{entry.calories} kcal</div>
-                      <div className="text-[10px] text-on-surface-variant/60 font-mono mt-1">{entry.protein}p / {entry.carbs}c / {entry.fat}f</div>
-                    </div>
-                    <button
-                      onClick={() => handleDelete(entry.id)}
-                      className="text-on-surface-variant hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <aside className="xl:col-span-4 space-y-8">
+        <style>{`
+          .no-spinner::-webkit-inner-spin-button, 
+          .no-spinner::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+          }
+          .no-spinner {
+            -moz-appearance: textfield;
+          }
+        `}</style>
+        <aside className={cn("xl:col-span-4 space-y-8", isArabic ? "xl:order-1" : "xl:order-2")}>
           <section className="bg-surface-container-high rounded-3xl p-8 border border-outline-variant/30 space-y-8 shadow-2xl">
             <div className="flex items-center gap-3">
               <Plus size={16} className="text-primary" />
-              <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase">QUICK_ENTRY_SYSTEM</h3>
+              <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase">
+                {isArabic ? 'إدخال سريع' : 'QUICK_ENTRY_SYSTEM'}
+              </h3>
             </div>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-on-surface-variant/70 uppercase px-1 tracking-widest">Food_Name</label>
+                <label className="text-[10px] font-bold text-on-surface-variant/70 uppercase px-1 tracking-widest">
+                  {isArabic ? 'اسم الطعام' : 'Food_Name'}
+                </label>
                 <input
                   className="w-full recessed-input text-sm py-4 px-5"
-                  placeholder="Entry Label..."
+                  placeholder={isArabic ? 'اختر اسم الطعام...' : 'Entry Label...'}
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   required
+                  dir={isArabic ? 'rtl' : 'ltr'}
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-on-surface-variant/70 uppercase px-1 tracking-widests">Meal_Category</label>
-                <select
-                  className="w-full recessed-input text-sm py-4 px-5 appearance-none"
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-on-surface-variant/70 uppercase px-1 tracking-widest">
+                  {isArabic ? 'فئة الوجبة' : 'Meal_Category'}
+                </label>
+                <OSSelect
                   value={form.meal}
-                  onChange={e => setForm(f => ({ ...f, meal: e.target.value }))}
-                >
-                  <option>BREAKFAST</option>
-                  <option>LUNCH</option>
-                  <option>DINNER</option>
-                  <option>SNACK</option>
-                </select>
+                  onChange={(val: string) => setForm(f => ({ ...f, meal: val }))}
+                  isArabic={isArabic}
+                  options={Object.keys(MEAL_ORDER).map(k => ({
+                    value: k,
+                    label: k,
+                    labelAr: k === 'BREAKFAST' ? 'الفطار' : k === 'LUNCH' ? 'الغداء' : k === 'PRE_WORKOUT' ? 'وجبة قبل التمرين' : k === 'INTRA_WORKOUT' ? 'أثناء التمرين' : k === 'POST_WORKOUT' ? 'وجبة بعد التمرين' : k === 'SNACK' ? 'وجبة خفيفة' : 'عامة',
+                    icon: mealIconMap[k] || Utensils
+                  }))}
+                />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-6">
                 {[
-                  { label: 'Energy_kcal', key: 'calories' },
-                  { label: 'Protein_g', key: 'protein' },
-                  { label: 'Carbs_g', key: 'carbs' },
-                  { label: 'Fat_g', key: 'fat' },
+                  { label: isArabic ? 'طاقة (سعرة)' : 'Energy_kcal', key: 'calories', req: true, icon: Flame, color: 'text-orange-400' },
+                  { label: isArabic ? 'بروتين (ج)' : 'Protein_g', key: 'protein', icon: Zap, color: 'text-blue-400' },
+                  { label: isArabic ? 'كارب (ج)' : 'Carbs_g', key: 'carbs', icon: Activity, color: 'text-emerald-400' },
+                  { label: isArabic ? 'دهون (ج)' : 'Fat_g', key: 'fat', icon: Droplets, color: 'text-amber-400' },
                 ].map(f => (
-                  <div key={f.key} className="space-y-2">
-                    <label className="text-[10px] font-bold text-on-surface-variant/70 uppercase px-1 tracking-widest">{f.label}</label>
+                  <div key={f.key} className="space-y-3 p-4 bg-surface-container-high/50 rounded-2xl border border-outline-variant/10 shadow-inner">
+                    <div className="flex items-center gap-2 px-1">
+                      <f.icon size={12} className={f.color} />
+                      <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em]">{f.label}</label>
+                    </div>
                     <input
                       type="number"
-                      className="w-full recessed-input text-sm py-4 px-5"
+                      className="w-full bg-transparent text-xl font-headline font-black focus:outline-none no-spinner"
                       placeholder="0"
                       value={form[f.key as keyof typeof form]}
                       onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      required={f.req}
                     />
                   </div>
                 ))}
@@ -964,37 +1514,99 @@ const NutritionView = ({ userId }: { userId: string }) => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-5 rounded-2xl bg-primary-container text-surface font-black text-[10px] tracking-[0.3em] uppercase shadow-xl shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-6 rounded-2xl bg-primary text-surface font-black text-xs tracking-[0.4em] uppercase shadow-2xl shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-4 disabled:opacity-50"
               >
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-                {submitting ? 'SAVING...' : 'ADD_TO_DATABASE'}
+                {submitting ? <Loader2 size={24} className="animate-spin" /> : <PlusCircle size={20} />}
+                {submitting ? (isArabic ? 'جارٍ تسجيل البيانات...' : 'SYNCING...') : (isArabic ? 'إضافة الوجبة الآن' : 'LOG_MEAL_DATA')}
               </button>
             </form>
           </section>
-
-          <section className="bg-surface-container-highest/50 backdrop-blur-xl rounded-3xl p-8 relative overflow-hidden border border-outline-variant/20 shadow-2xl">
-            <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/10 rounded-full blur-[80px]" />
-            <h3 className="text-[10px] font-bold tracking-[0.3em] uppercase text-on-surface-variant mb-8">SUMMARY_METRICS</h3>
-            <div className="space-y-8">
-              <div className="flex justify-between items-end border-b border-outline-variant/20 pb-6">
-                <span className="text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-widest">Total_Energy</span>
-                <span className="font-headline text-4xl font-black leading-none">{totals.calories} <small className="text-xs font-medium opacity-40">KCAL</small></span>
-              </div>
-              <div className="grid grid-cols-3 gap-6">
-                {[
-                  { l: 'PRO', v: `${totals.protein}g` },
-                  { l: 'CHO', v: `${totals.carbs}g` },
-                  { l: 'FAT', v: `${totals.fat}g` },
-                ].map((s, i) => (
-                  <div key={i}>
-                    <div className="text-[9px] font-bold text-on-surface-variant/50 uppercase mb-2 tracking-widest">{s.l}</div>
-                    <div className="text-xl font-headline font-bold">{s.v}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
         </aside>
+
+        <section className={cn("xl:col-span-8 bg-surface-container rounded-3xl overflow-hidden border border-outline-variant/20 flex flex-col min-h-[500px] shadow-2xl", isArabic ? "xl:order-2" : "xl:order-1")}>
+          <div className="p-8 border-b border-outline-variant/20 flex justify-between items-center bg-surface-variant/10">
+            <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase">
+              {isArabic ? 'سجل الطعام اليومي' : 'CHRONOLOGICAL_FOOD_LOG'}
+            </h3>
+            <span className="text-[10px] text-primary font-bold uppercase tracking-widest">
+              {entries.length} {isArabic ? 'سجل' : 'entries'}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-20"><Loader2 className="text-primary animate-spin" size={32} /></div>
+            ) : mealEntries.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 opacity-40">
+                <Utensils size={48} className="text-primary mb-4" />
+                <p className="text-sm font-bold uppercase tracking-widest">
+                  {isArabic ? 'لا إدخالات بعد' : 'No food entries yet'}
+                </p>
+              </div>
+            ) : mealEntries.map((group) => (
+              <div key={group.key} className="space-y-4">
+                <button 
+                  onClick={() => toggleCategory(group.key)}
+                  className="w-full flex items-center justify-between p-4 bg-surface-container-highest/30 rounded-2xl hover:bg-surface-container-highest/50 transition-colors group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                      <group.Icon size={18} />
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-black tracking-widest uppercase">{group.label}</div>
+                      <div className="text-[10px] text-on-surface-variant font-bold opacity-60">
+                        {group.entries.length} {isArabic ? 'إصناف' : 'items'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-base font-black text-primary">{group.totalKcal} <small className="text-[10px] opacity-40">kcal</small></div>
+                    </div>
+                    <motion.div animate={{ rotate: openCategories[group.key] ? 0 : 180 }}>
+                      <ChevronRight size={16} className="text-primary/40 rotate-90" />
+                    </motion.div>
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {openCategories[group.key] && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden space-y-3 pr-4"
+                    >
+                      {group.entries.map((entry) => (
+                        <div key={entry.id} className="p-5 flex items-center justify-between bg-surface-container-low rounded-2xl border border-outline-variant/10 hover:border-primary/30 transition-all group">
+                          <div className="flex-1">
+                            <div className="text-base font-bold">{entry.name}</div>
+                            <div className="text-[10px] text-on-surface-variant font-mono mt-1 flex gap-3 opacity-60">
+                              <span>{entry.protein}p</span>
+                              <span>{entry.carbs}c</span>
+                              <span>{entry.fat}f</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <div className="text-right">
+                              <div className="text-lg font-black text-primary">{entry.calories} <small className="text-[10px] font-medium opacity-40">kcal</small></div>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
+                              className="w-10 h-10 rounded-xl bg-red-400/10 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity active:scale-95"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -1003,22 +1615,28 @@ const NutritionView = ({ userId }: { userId: string }) => {
 // --- Main App ---
 
 export default function App() {
-  const [mode, setMode] = useState<AppMode>('LOADING');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [mode, setMode] = useState<AppMode>(() => {
+    if (localStorage.getItem('isLoggedIn') === 'true') {
+      return (localStorage.getItem('activeMode') as AppMode) || 'LOADING';
+    }
+    return 'LOADING';
+  });
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [isArabic, setIsArabic] = useState(false);
+  const [isArabic, setIsArabic] = useState(() => localStorage.getItem('isArabic') === 'true');
 
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-  const toggleLanguage = () => {
-    setIsArabic(prev => {
-      const next = !prev;
-      document.documentElement.dir = next ? 'rtl' : 'ltr';
-      document.documentElement.lang = next ? 'ar' : 'en';
-      return next;
-    });
-  };
+  useEffect(() => {
+    localStorage.setItem('isArabic', isArabic ? 'true' : 'false');
+    document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
+    document.documentElement.lang = isArabic ? 'ar' : 'en';
+  }, [isArabic]);
+
+  useEffect(() => {
+    if (mode !== 'LOADING' && mode !== 'AUTH') {
+      localStorage.setItem('activeMode', mode);
+    }
+  }, [mode]);
 
   // Listen to Firebase auth state
   useEffect(() => {
@@ -1027,7 +1645,9 @@ export default function App() {
         // Check if the signed-in user is whitelisted
         if (firebaseUser.email === WHITELISTED_EMAIL) {
           setUser(firebaseUser);
-          setMode('MEDICAL');
+          localStorage.setItem('isLoggedIn', 'true');
+          const savedMode = localStorage.getItem('activeMode') as AppMode;
+          setMode(savedMode && savedMode !== 'AUTH' ? savedMode : 'MEDICAL');
         } else {
           // Sign out unauthorized users
           signOut(auth);
@@ -1037,6 +1657,7 @@ export default function App() {
         }
       } else {
         setUser(null);
+        localStorage.removeItem('isLoggedIn');
         setMode('AUTH');
       }
     });
@@ -1071,79 +1692,55 @@ export default function App() {
   }
 
   if (mode === 'AUTH') {
-    return <AuthView onLogin={handleLogin} isLoading={authLoading} error={authError} />;
+    return <AuthView onLogin={handleLogin} isLoading={authLoading} error={authError} isArabic={isArabic} />;
   }
 
   const getTitle = () => {
     if (isArabic) {
       switch (mode) {
         case 'MEDICAL': return 'النظام الطبي / العلامات الحيوية';
-        case 'FINANCIAL': return 'نظام إسلام / المالية';
+        case 'FINANCIAL': return 'التقرير المالي / المالية';
         case 'NUTRITION': return 'نظام التغذية / الأيض';
         default: return 'النظام الشخصي';
       }
     }
     switch (mode) {
       case 'MEDICAL': return 'MEDICAL OS / VITAL SIGNS';
-      case 'FINANCIAL': return 'ISLAM OS / FINANCIALS';
+      case 'FINANCIAL': return 'FINANCIAL OS / WALLETS';
       case 'NUTRITION': return 'NUTRITION OS / METABOLICS';
       default: return 'PERSONAL OS';
     }
   };
 
   return (
-    <div className={cn("min-h-screen bg-surface flex", isArabic && "flex-row-reverse")} dir={isArabic ? 'rtl' : 'ltr'}>
-      <Sidebar
-        user={user}
-        activeMode={mode}
-        setMode={setMode}
-        isOpen={isSidebarOpen}
-        toggle={toggleSidebar}
-        onLogout={handleLogout}
+    <div className="min-h-screen bg-surface" dir={isArabic ? 'rtl' : 'ltr'}>
+      <GlobalStyles />
+      <TopBar
+        title={getTitle()}
         isArabic={isArabic}
+        toggleLanguage={() => setIsArabic(v => !v)}
+        user={user}
+        onLogout={handleLogout}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <TopBar title={getTitle()} toggleSidebar={toggleSidebar} isArabic={isArabic} toggleLanguage={toggleLanguage} />
-
-        <main className={cn("flex-1 pt-24 px-6 lg:px-10 pb-10", isArabic ? "lg:mr-64" : "lg:ml-64")}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={mode}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-              className="h-full"
-            >
-              {mode === 'MEDICAL' && user && <MedicalView userId={user.uid} />}
-              {mode === 'FINANCIAL' && user && <FinancialView userId={user.uid} />}
-              {mode === 'NUTRITION' && user && <NutritionView userId={user.uid} />}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-      </div>
-
-      {/* Mobile Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-surface/90 backdrop-blur-xl border-t border-outline-variant flex lg:hidden z-40">
-        {[
-          { id: 'MEDICAL', icon: Pill, label: isArabic ? 'طبي' : 'Med' },
-          { id: 'FINANCIAL', icon: Landmark, label: isArabic ? 'مالي' : 'Fin' },
-          { id: 'NUTRITION', icon: Utensils, label: isArabic ? 'غذاء' : 'Nut' },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setMode(item.id as AppMode)}
-            className={cn(
-              "flex-1 flex flex-col items-center justify-center gap-1 transition-all",
-              mode === item.id ? "text-primary bg-primary/5" : "text-on-surface-variant"
-            )}
+      <main className="pt-16 px-4 sm:px-6 lg:px-10 pb-28">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={mode}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
           >
-            <item.icon size={20} />
-            <span className="text-[9px] font-bold uppercase tracking-widest">{item.label}</span>
-          </button>
-        ))}
-      </nav>
+            {mode === 'MEDICAL' && user && <MedicalView userId={user.uid} isArabic={isArabic} />}
+            {mode === 'FINANCIAL' && user && <FinancialView userId={user.uid} isArabic={isArabic} />}
+            {mode === 'NUTRITION' && user && <NutritionView userId={user.uid} isArabic={isArabic} />}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      <BottomNav activeMode={mode} setMode={setMode} isArabic={isArabic} />
     </div>
   );
 }
+
