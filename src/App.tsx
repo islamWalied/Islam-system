@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Pill, Plus, Search, Menu, X, Bell, BellRing, LayoutDashboard, Stethoscope, Landmark, Utensils, Trash2, Loader2,
-  Languages, Droplets, Eye, Sparkles, Clock, Flame, Zap, Activity, PlusCircle, ChevronDown, Edit2,
+  Languages, Droplets, Eye, EyeOff, Sparkles, Clock, Flame, Zap, Activity, PlusCircle, ChevronDown, Edit2,
   Heart, Wallet, ShieldAlert, CreditCard, ChevronLeft, ChevronRight, ArrowRight, ArrowLeftRight,
   User as UserIcon, LogOut, CheckCircle2, Salad, Smartphone, Globe, Cloud, Moon, Sun, ShieldCheck,
   BarChart3, Settings, Info, HelpCircle, Apple, Pizza, Coffee
@@ -97,7 +97,7 @@ import {
 
 // --- Types ---
 
-type AppMode = 'AUTH' | 'LOADING' | 'DASHBOARD' | 'MEDICAL' | 'FINANCIAL' | 'NUTRITION';
+type AppMode = 'AUTH' | 'LOADING' | 'DASHBOARD' | 'MEDICAL' | 'FINANCIAL' | 'NUTRITION' | 'PRAYER';
 
 
 // Medicine schedule definition
@@ -208,6 +208,25 @@ interface MedicalRecord {
   heartRate: number;
   date: string;
   createdAt: any;
+}
+
+interface PrayerRecord {
+  completed: boolean;
+  inMasjid: boolean;
+  sunnahBefore?: number;
+  sunnahAfter?: number;
+}
+
+interface DayPrayers {
+  fajr: PrayerRecord;
+  dhuhr: PrayerRecord;
+  asr: PrayerRecord;
+  maghrib: PrayerRecord;
+  isha: PrayerRecord;
+  quranWard: {
+    completed: boolean;
+    secondsRemaining: number;
+  };
 }
 
 // --- Shared Components ---
@@ -389,6 +408,7 @@ const BottomNav = ({ activeMode, setMode, isArabic }: {
 }) => {
   const items = [
     { id: 'DASHBOARD', icon: LayoutDashboard, labelAr: 'الرئيسية', labelEn: 'Dashboard', color: 'text-indigo-400', activeBg: 'bg-indigo-400/20' },
+    { id: 'PRAYER', icon: Moon, labelAr: 'الصلاة', labelEn: 'Prayer', color: 'text-amber-400', activeBg: 'bg-amber-400/20' },
     { id: 'NUTRITION', icon: Utensils, labelAr: 'التغذية', labelEn: 'Nutrition', color: 'text-emerald-400', activeBg: 'bg-emerald-400/20' },
     { id: 'FINANCIAL', icon: Landmark, labelAr: 'المالية', labelEn: 'Financial', color: 'text-primary', activeBg: 'bg-primary/20' },
     { id: 'MEDICAL', icon: Pill, labelAr: 'الطبي', labelEn: 'Medical', color: 'text-blue-400', activeBg: 'bg-blue-400/20' },
@@ -559,14 +579,16 @@ const AuthView = ({ onLogin, isLoading, error, isArabic }: { onLogin: () => void
 
 // --- View: Dashboard ---
 
-const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDate, viewMode, setViewMode }: { 
+const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDate, viewMode, setViewMode, isWealthHidden, setIsWealthHidden }: { 
   userId: string, 
   isArabic: boolean, 
   setMode: (m: AppMode) => void,
   selectedDate: string,
   setSelectedDate: (d: string) => void,
   viewMode: 'DAILY' | 'WEEKLY',
-  setViewMode: (v: 'DAILY' | 'WEEKLY') => void
+  setViewMode: (v: 'DAILY' | 'WEEKLY') => void,
+  isWealthHidden: boolean,
+  setIsWealthHidden: (v: boolean) => void
 }) => {
   const todayStr = getSystemToday();
   const dashDate = selectedDate; 
@@ -945,13 +967,14 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
               },
               {
                 label: isArabic ? 'إجمالي الثروة' : 'Total Wealth',
-                value: totalWealth.toLocaleString(),
+                value: isWealthHidden ? '••••••' : totalWealth.toLocaleString(),
                 sub: isArabic ? 'رصيد كل المحافظ' : 'All wallets',
                 color: 'text-indigo-400',
                 bg: 'bg-indigo-400/10',
                 icon: Wallet,
                 bar: 100,
                 barColor: 'bg-indigo-400',
+                isWealth: true,
               },
             ].map((stat, i) => (
               <motion.div
@@ -959,12 +982,22 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07 }}
-                className="bg-surface-container rounded-3xl p-5 border border-outline-variant/10 shadow-xl space-y-3"
+                className="bg-surface-container rounded-3xl p-5 border border-outline-variant/10 shadow-xl space-y-3 relative group"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-black tracking-[0.3em] uppercase text-on-surface-variant/50">{stat.label}</span>
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
-                    <stat.icon size={16} />
+                  <div className="flex items-center gap-2">
+                    {(stat as any).isWealth && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setIsWealthHidden(!isWealthHidden); }}
+                        className="w-6 h-6 rounded-lg bg-surface-container-highest/50 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+                      >
+                        {isWealthHidden ? <Eye size={12} /> : <EyeOff size={12} />}
+                      </button>
+                    )}
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
+                      <stat.icon size={16} />
+                    </div>
                   </div>
                 </div>
                 <div>
@@ -1117,18 +1150,16 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
               <div className="p-6 space-y-4">
                 <div className="flex justify-between">
                   <div className="space-y-1">
-                    <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest">{isArabic ? 'دخل' : 'INCOME'}</p>
-                    <p className="text-2xl font-headline font-black text-emerald-400">+{finIncome.toLocaleString()}</p>
+                    <p className="text-2xl font-headline font-black text-emerald-400">{isWealthHidden ? '••••••' : `+${finIncome.toLocaleString()}`}</p>
                   </div>
                   <div className="text-right space-y-1">
-                    <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest">{isArabic ? 'مصروف' : 'EXPENSES'}</p>
-                    <p className="text-2xl font-headline font-black text-red-400">-{finExpense.toLocaleString()}</p>
+                    <p className="text-2xl font-headline font-black text-red-400">{isWealthHidden ? '••••••' : `-${finExpense.toLocaleString()}`}</p>
                   </div>
                 </div>
                 <div className="p-4 rounded-2xl bg-surface-variant/10 border border-outline-variant/5 flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">{isArabic ? 'الصافي' : 'NET'}</span>
                   <span className={`text-xl font-headline font-black ${finNet >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {finNet >= 0 ? '+' : ''}{finNet.toLocaleString()} <span className="text-[10px] opacity-40">EGP</span>
+                    {isWealthHidden ? '••••••' : `${finNet >= 0 ? '+' : ''}${finNet.toLocaleString()}`} {!isWealthHidden && <span className="text-[10px] opacity-40">EGP</span>}
                   </span>
                 </div>
                 {accounts.length > 0 && (
@@ -1137,8 +1168,7 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
                       const preset = PRESET_ACCOUNTS.find(p => p.id === acc.id);
                       return (
                         <div key={acc.id} className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold opacity-40">{isArabic ? preset?.nameAr : preset?.nameEn}</span>
-                          <span className="text-[10px] font-black text-on-surface">{(acc.balance || 0).toLocaleString()}</span>
+                          <span className="text-[10px] font-black text-on-surface">{isWealthHidden ? '••••••' : (acc.balance || 0).toLocaleString()}</span>
                         </div>
                       );
                     })}
@@ -1173,29 +1203,32 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
               ) : (
                 <div className="divide-y divide-outline-variant/5 max-h-72 overflow-y-auto custom-scrollbar">
                   {financialEntries.map(entry => {
-                    const isExpense = entry.type === 'Expense' || entry.type === 'Debt (Owed To Someone)';
+                    const isOutflow = ['Expense', 'Shopping', 'Bills', 'Lent', 'Repaid'].includes(entry.type);
+                    const isInflow = ['Salary', 'Freelance', 'Gifts', 'Borrowed', 'Recovered'].includes(entry.type);
                     const isExpected = entry.type === 'Expected' || entry.status === 'PENDING';
-                    const isDebtMe = entry.type === 'Debt (Owed To Me)';
                     return (
                       <div key={entry.id} className="p-4 flex items-center justify-between hover:bg-surface-variant/20 transition-all">
                         <div className="flex items-center gap-3 overflow-hidden">
                           <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
                             isExpected ? 'bg-amber-400/10 text-amber-400' :
-                            isExpense ? 'bg-red-400/10 text-red-400' :
-                                isDebtMe ? 'bg-indigo-400/10 text-indigo-400' :
-                                  'bg-emerald-400/10 text-emerald-400'
+                            isOutflow ? 'bg-red-400/10 text-red-400' :
+                            'bg-emerald-400/10 text-emerald-400'
                           )}>
-                            {isExpected ? <Clock size={16} /> : isExpense ? <ShieldAlert size={16} /> : isDebtMe ? <UserIcon size={16} /> : <Zap size={16} />}
+                            {isExpected ? <Clock size={16} /> : isOutflow ? <ShieldAlert size={16} /> : <ArrowLeftRight size={22} />}
                           </div>
                           <div className="overflow-hidden">
                             <p className="text-sm font-bold truncate">{entry.source}</p>
-                            <p className="text-[8px] uppercase tracking-widest opacity-30 font-black">{isArabic ? (isExpected ? 'مُعلّق' : isExpense ? 'مصروف' : isDebtMe ? 'دين لي' : 'دخل') : (isExpected ? 'PENDING' : entry.type)}</p>
+                            <p className="text-[8px] uppercase tracking-widest opacity-30 font-black">
+                              {isArabic 
+                                ? (isExpected ? 'مُعلّق / متوقع' : isOutflow ? 'مصروف / سداد' : 'دخل / توريد') 
+                                : (isExpected ? 'PENDING' : entry.type.toUpperCase())}
+                            </p>
                           </div>
                         </div>
                         <span className={cn("text-base font-headline font-black flex-shrink-0",
-                          isExpected ? 'text-amber-400' : isExpense ? 'text-red-400' : isDebtMe ? 'text-indigo-400' : 'text-emerald-400'
+                          isExpected ? 'text-amber-400' : isOutflow ? 'text-red-400' : 'text-emerald-400'
                         )}>
-                          {isExpense ? '-' : '+'}{entry.amount.toLocaleString()}
+                          {isWealthHidden ? '••••••' : `${isExpected ? '' : isOutflow ? '-' : '+'}${entry.amount.toLocaleString()}`}
                         </span>
                       </div>
                     );
@@ -1523,10 +1556,12 @@ const MedicalView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
 
 // --- View: Financial ---
 
-const FinancialView = ({ userId, isArabic, selectedDate }: { 
+const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWealthHidden }: { 
   userId: string, 
   isArabic: boolean,
-  selectedDate: string 
+  selectedDate: string,
+  isWealthHidden: boolean,
+  setIsWealthHidden: (v: boolean) => void
 }) => {
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
   const [accounts, setAccounts] = useState<AccountSnapshot[]>([]);
@@ -1578,7 +1613,7 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
               const accDoc = await trans.get(accRef);
               if (!accDoc.exists()) return;
               
-              const isDeduction = pending.type === 'Expense' || pending.type === 'Debt (Owed To Someone)' || pending.type === 'Loan Given (Expense)';
+              const isDeduction = ['Expense', 'Shopping', 'Bills', 'Lent', 'Repaid'].includes(pending.type);
               const diff = isDeduction ? -pending.amount : pending.amount;
               
               trans.update(accRef, { balance: (accDoc.data().balance || 0) + diff });
@@ -1656,7 +1691,7 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
 
         // A. Reverse Old Impact on Old Account (Only if it was previously COMPLETED)
         if (oldEntryData && oldEntryData.type !== 'Expected' && oldEntryData.status !== 'PENDING') {
-          const isOldDeduction = oldEntryData.type === 'Expense' || oldEntryData.type === 'Debt (Owed To Someone)' || oldEntryData.type === 'Loan Given (Expense)';
+          const isOldDeduction = ['Expense', 'Shopping', 'Bills', 'Lent', 'Repaid'].includes(oldEntryData.type);
           const reversalAmount = isOldDeduction ? oldEntryData.amount : -oldEntryData.amount;
 
           if (oldAccId === form.accountId) {
@@ -1667,8 +1702,8 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
         }
 
         // B. Apply New Impact on New Account (Only if it's COMPLETED now)
-        if (newStatus === 'COMPLETED') {
-          const isNewDeduction = form.type === 'Expense' || form.type === 'Debt (Owed To Someone)' || form.type === 'Loan Given (Expense)';
+        if (newStatus === 'COMPLETED' && form.type !== 'Expected') {
+          const isNewDeduction = ['Expense', 'Shopping', 'Bills', 'Lent', 'Repaid'].includes(form.type);
           newBalanceForNewAcc = isNewDeduction ? newBalanceForNewAcc - amountValue : newBalanceForNewAcc + amountValue;
         }
 
@@ -1720,7 +1755,7 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
 
     try {
       await runTransaction(db, async (transaction) => {
-        const isDeduction = entryType === 'Expense' || entryType === 'Debt (Owed To Someone)' || entryType === 'Loan Given (Expense)';
+        const isDeduction = ['Expense', 'Shopping', 'Bills', 'Lent', 'Repaid'].includes(entryType);
 
         // 1. Get the account (if it exists in the record AND is NOT Expected/PENDING)
         if (entryAccountId && entryType !== 'Expected' && entry.status !== 'PENDING') {
@@ -1743,8 +1778,8 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
     }
   };
 
-  const totalExpenses = entries.filter(e => e.type === 'Expense' || e.type === 'Debt (Owed To Someone)' || e.type === 'Loan Given (Expense)').reduce((acc, e) => acc + e.amount, 0);
-  const totalIncome = entries.filter(e => e.type.startsWith('Income') || e.type === 'Debt (Owed To Me)').reduce((acc, e) => acc + e.amount, 0);
+  const totalExpenses = entries.filter(e => ['Expense', 'Shopping', 'Bills', 'Lent', 'Repaid'].includes(e.type) && e.type !== 'Expected' && e.status !== 'PENDING').reduce((acc, e) => acc + e.amount, 0);
+  const totalIncome = entries.filter(e => ['Salary', 'Freelance', 'Gifts', 'Borrowed', 'Recovered'].includes(e.type) && e.type !== 'Expected' && e.status !== 'PENDING').reduce((acc, e) => acc + e.amount, 0);
   const netWorth = accounts.reduce((acc, a) => acc + a.balance, 0);
 
   return (
@@ -1778,11 +1813,19 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
               ) : (
                 <div className="flex items-center justify-between group/val cursor-pointer" onClick={() => { setEditingAccountId(p.id); setTempBalance(acc?.balance.toString() || '0'); }}>
                   <h3 className="text-3xl font-headline font-black text-on-surface">
-                    {acc?.balance.toLocaleString() ?? '—'}
+                    {isWealthHidden ? '••••••' : (acc?.balance.toLocaleString() ?? '—')}
                     <span className="text-[10px] font-medium ml-2 opacity-30">EGP</span>
                   </h3>
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover/val:opacity-100 transition-opacity">
-                    <Sparkles size={14} className="text-primary" />
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setIsWealthHidden(!isWealthHidden); }}
+                      className="w-8 h-8 rounded-full bg-surface-container-highest/50 flex items-center justify-center text-on-surface-variant hover:text-primary transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      {isWealthHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                    </button>
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover/val:opacity-100 transition-opacity">
+                      <Sparkles size={14} className="text-primary" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1849,13 +1892,17 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
                             onChange={(val: string) => setForm(f => ({ ...f, type: val }))}
                             isArabic={isArabic}
                             options={[
-                              { value: 'Expense', label: 'Expense', labelAr: 'مصروف', icon: CreditCard },
-                              { value: 'Income (Salary)', label: 'Salary', labelAr: 'دخل (راتب)', icon: ArrowLeftRight },
-                              { value: 'Income (Freelance)', label: 'Freelance', labelAr: 'دخل (عمل حر)', icon: Zap },
-                              { value: 'Income (General)', label: 'General Income', labelAr: 'دخل عام', icon: PlusCircle },
-                              { value: 'Loan Given (Expense)', label: 'Loan Given', labelAr: 'سلفة (أديتها لحد)', icon: ArrowRight },
-                              { value: 'Debt (Owed To Me)', label: 'Owed To Me', labelAr: 'سداد دين (لي)', icon: UserIcon },
-                              { value: 'Debt (Owed To Someone)', label: 'Owed To Someone', labelAr: 'دين (علي)', icon: ShieldAlert },
+                              { value: 'Expense', label: 'General Expense', labelAr: 'مصروف عام', icon: CreditCard },
+                              { value: 'Shopping', label: 'Shopping', labelAr: 'تسوق / مشتريات', icon: Utensils },
+                              { value: 'Bills', label: 'Bills/Subscriptions', labelAr: 'فواتير / اشتراكات', icon: Globe },
+                              { value: 'Salary', label: 'Salary/Wage', labelAr: 'راتب / دخل أساسي', icon: ArrowLeftRight },
+                              { value: 'Freelance', label: 'Freelance/Business', labelAr: 'عمل حر / جانبي', icon: Zap },
+                              { value: 'Gifts', label: 'Gifts/Bonuses', labelAr: 'هدية / مكافأة', icon: Apple },
+                              { value: 'Lent', label: 'Lent (Asset Out)', labelAr: 'سلفت حد (فلوس خرجت)', icon: ArrowRight },
+                              { value: 'Recovered', label: 'Recovered (Asset In)', labelAr: 'استرداد سلفة (فلوس رجعت)', icon: UserIcon },
+                              { value: 'Borrowed', label: 'Borrowed (Liability In)', labelAr: 'استلفت من حد (فلوس دخلت)', icon: ArrowLeftRight },
+                              { value: 'Repaid', label: 'Repaid (Liability Out)', labelAr: 'سددت دَين (فلوس خرجت)', icon: ShieldAlert },
+                              { value: 'Expected', label: 'Expected (Planning)', labelAr: 'معاملة متوقعة', icon: Clock },
                             ]}
                           />
                         </div>
@@ -1961,9 +2008,9 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
                 </div>
               ) : entries.slice(0, 30).map((entry, idx) => {
                 const acc = PRESET_ACCOUNTS.find(a => a.id === entry.accountId);
-                const isExpense = entry.type === 'Expense' || entry.type === 'Debt (Owed To Someone)';
+                const isOutflow = ['Expense', 'Shopping', 'Bills', 'Lent', 'Repaid'].includes(entry.type);
+                const isInflow = ['Salary', 'Freelance', 'Gifts', 'Borrowed', 'Recovered'].includes(entry.type);
                 const isExpected = entry.type === 'Expected' || entry.status === 'PENDING';
-                const isDebtMe = entry.type === 'Debt (Owed To Me)';
 
                 // Timeline Separator Logic
                 const prevEntry = idx > 0 ? entries[idx - 1] : null;
@@ -1986,11 +2033,10 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
                         <div className={cn(
                           "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-105",
                           isExpected ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
-                          isExpense ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                              isDebtMe ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                                'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          isOutflow ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                          'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         )}>
-                          {isExpected ? <Clock size={22} /> : isExpense ? <ShieldAlert size={22} /> : isDebtMe ? <UserIcon size={22} /> : <ArrowLeftRight size={22} />}
+                          {isExpected ? <Clock size={22} /> : isOutflow ? <ShieldAlert size={22} /> : <ArrowLeftRight size={22} />}
                         </div>
                         <div className="overflow-hidden">
                           <p className="text-base font-bold truncate group-hover:text-primary transition-colors">{entry.source}</p>
@@ -2005,14 +2051,24 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
                         <div className="text-right hidden sm:block">
                           <div className={cn(
                             "text-xl font-headline font-black",
-                            isExpected ? 'text-amber-500' : isExpense ? 'text-red-400' : isDebtMe ? 'text-indigo-400' : 'text-emerald-400'
+                            isExpected ? 'text-amber-500' : isOutflow ? 'text-red-400' : 'text-emerald-400'
                           )}>
-                            {isExpense ? '-' : '+'}{entry.amount.toLocaleString()} <span className="text-[10px] opacity-40">{entry.currency}</span>
+                            {isWealthHidden ? '••••••' : `${isExpected ? '' : isOutflow ? '-' : '+'}${entry.amount.toLocaleString()} ${entry.currency}`}
                           </div>
                           <p className="text-[8px] font-bold text-on-surface-variant/30 uppercase tracking-[0.3em] mt-0.5">
-                            {isArabic
-                              ? (isExpected ? 'مُعلّق' : entry.type === 'Debt (Owed To Me)' ? 'دين لي' : entry.type === 'Debt (Owed To Someone)' ? 'دين علي' : entry.type === 'Expense' ? 'مصروف' : 'دخل')
-                              : (isExpected ? 'PENDING' : entry.type.replace('Debt (', '').replace(')', ''))}
+                            {isArabic 
+                              ? (entry.type === 'Expected' ? 'مُعلّق / متوقع' : 
+                                 entry.type === 'Expense' ? 'مصروف عام' : 
+                                 entry.type === 'Shopping' ? 'تسوق' : 
+                                 entry.type === 'Bills' ? 'فواتير واشتراكات' : 
+                                 entry.type === 'Salary' ? 'راتب أساسي' : 
+                                 entry.type === 'Freelance' ? 'عمل حر' : 
+                                 entry.type === 'Gifts' ? 'هدية / مكافأة' : 
+                                 entry.type === 'Lent' ? 'سلفة صاردة' : 
+                                 entry.type === 'Recovered' ? 'استرداد سلفة' : 
+                                 entry.type === 'Borrowed' ? 'سلفة واردة' : 
+                                 entry.type === 'Repaid' ? 'سداد دين' : 'أخرى')
+                              : (entry.type === 'Expected' ? 'PENDING' : entry.type.toUpperCase())}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
@@ -2069,9 +2125,17 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
                 </div>
               </div>
 
-              <div className="text-6xl font-headline font-black tracking-tighter mb-10 overflow-hidden text-ellipsis">
-                {netWorth.toLocaleString('en-EG', { minimumFractionDigits: 2 })}
-                <span className="text-sm font-bold opacity-30 ml-3">EGP</span>
+              <div className="flex items-center justify-between mb-10 overflow-hidden">
+                <div className="text-6xl font-headline font-black tracking-tighter text-ellipsis">
+                  {isWealthHidden ? '••••••' : netWorth.toLocaleString('en-EG', { minimumFractionDigits: 2 })}
+                  <span className="text-sm font-bold opacity-30 ml-3">EGP</span>
+                </div>
+                <button 
+                  onClick={() => setIsWealthHidden(!isWealthHidden)}
+                  className="w-12 h-12 rounded-2xl bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-primary transition-all hover:scale-105 active:scale-95 shadow-lg border border-outline-variant/10"
+                >
+                  {isWealthHidden ? <Eye size={20} /> : <EyeOff size={20} />}
+                </button>
               </div>
             </div>
 
@@ -2088,43 +2152,11 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
                     <s.i size={18} className={s.c} />
                     <span className="text-[10px] font-bold text-on-surface-variant/70 tracking-widest uppercase">{s.l}</span>
                   </div>
-                  <span className={cn("text-xl font-headline font-black", s.c)}>{s.v.toLocaleString()}</span>
+                  <span className={cn("text-xl font-headline font-black", s.c)}>{isWealthHidden ? '••••••' : s.v.toLocaleString()}</span>
                 </div>
               ))}
             </div>
 
-            {/* Projected Outlook Card */}
-            <div className="mt-8 p-6 rounded-2xl bg-amber-500/5 border border-amber-500/10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Clock size={16} className="text-amber-500" />
-                  <span className="text-[10px] font-bold tracking-widest text-amber-500 uppercase">{isArabic ? 'التوقعات المستقبلية' : 'PROJECTED_OUTLOOK'}</span>
-                </div>
-                <span className="text-[9px] font-mono opacity-40">ALPHA_v1</span>
-              </div>
-              {(() => {
-                const expectedIn = entries.filter(e => e.type === 'Expected' && (e.source.toLowerCase().includes('دخل') || e.source.toLowerCase().includes('salary') || e.source.toLowerCase().includes('freelance'))).reduce((a, e) => a + e.amount, 0);
-                const expectedOut = entries.filter(e => e.type === 'Expected' && !(e.source.toLowerCase().includes('دخل') || e.source.toLowerCase().includes('salary') || e.source.toLowerCase().includes('freelance'))).reduce((a, e) => a + e.amount, 0);
-                const projection = netWorth + expectedIn - expectedOut;
-                return (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-[9px] text-on-surface-variant font-bold uppercase">{isArabic ? 'الثروة المتوقعة بنهاية الفترة' : 'ESTIMATED_MONTH_END'}</span>
-                      <span className={cn("text-2xl font-black font-headline", projection >= netWorth ? "text-primary" : "text-amber-500")}>
-                        {projection.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full bg-on-surface/5 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: '100%' }}
-                        className="h-full bg-gradient-to-r from-amber-500/40 to-primary"
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
           </section>
 
 
@@ -2138,6 +2170,330 @@ const FinancialView = ({ userId, isArabic, selectedDate }: {
           </section>
         </div>
       </div>
+    </div>
+  );
+};
+
+// --- View: Prayer & Quran ---
+
+const QuranFocusOverlay = ({ 
+  isArabic, 
+  setIsQuranFocusActive, 
+  secondsLeft, 
+  setSecondsLeft, 
+  isPaused, 
+  setIsPaused,
+  userId,
+  selectedDate,
+  onFinish
+}: any) => {
+  useEffect(() => {
+    let interval: any;
+    if (!isPaused && secondsLeft > 0) {
+      interval = setInterval(() => {
+        setSecondsLeft((prev: number) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isPaused, secondsLeft]);
+
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = secondsLeft % 60;
+
+  const handleComplete = async () => {
+    try {
+      if (userId && selectedDate) {
+        const ref = doc(db, `users/${userId}/prayers`, selectedDate);
+        await setDoc(ref, { quranWard: { completed: true, secondsRemaining: 0 } }, { merge: true });
+      }
+      setIsQuranFocusActive(false);
+      if (onFinish) onFinish();
+    } catch (err) {
+      console.error(err);
+      setIsQuranFocusActive(false);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-8 text-white"
+    >
+      <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] bg-primary/30 blur-[150px] rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] bg-amber-500/20 blur-[150px] rounded-full" />
+      </div>
+
+      <div className="relative z-10 flex flex-col items-center text-center max-w-lg">
+        <div className="p-6 rounded-full bg-primary/10 text-primary mb-12 animate-pulse">
+          <Moon size={64} />
+        </div>
+        
+        <h2 className="text-4xl font-headline font-black tracking-tighter mb-4">
+          {isArabic ? 'وقت الورد القرآني' : 'QURAN_FOCUS_TIME'}
+        </h2>
+        <p className="text-on-surface-variant/60 text-xs uppercase tracking-[0.4em] mb-16 font-bold">
+          {isArabic ? 'لا تشتيت.. فقط أنت والقرآن' : 'NO_DISTRACTIONS_ONLY_FOCUS'}
+        </p>
+
+        <div className="text-8xl font-black font-mono tracking-tighter mb-20 tabular-nums">
+          {minutes}:{seconds.toString().padStart(2, '0')}
+        </div>
+
+        <div className="flex gap-6 w-full">
+          <button
+            onClick={() => setIsPaused(!isPaused)}
+            className="flex-1 py-6 rounded-3xl bg-white/10 hover:bg-white/20 border border-white/10 transition-all font-black text-xs tracking-widest uppercase flex items-center justify-center gap-3"
+          >
+            {isPaused ? <PlusCircle size={20} /> : <div className="w-5 h-5 flex gap-1 justify-center"><div className="w-1.5 h-full bg-white rounded-full"/><div className="w-1.5 h-full bg-white rounded-full"/></div>}
+            {isPaused ? (isArabic ? 'استمرار' : 'RESUME') : (isArabic ? 'إيقاف مؤقت' : 'PAUSE')}
+          </button>
+          
+          {secondsLeft === 0 && (
+            <button
+              onClick={handleComplete}
+              className="flex-1 py-6 rounded-3xl bg-primary text-surface font-black text-xs tracking-widest uppercase transition-all shadow-2xl shadow-primary/40"
+            >
+              <CheckCircle2 size={20} className="inline mr-2" />
+              {isArabic ? 'تم بحمد الله' : 'COMPLETED'}
+            </button>
+          )}
+        </div>
+        
+        <p className="mt-12 text-[10px] opacity-30 font-bold tracking-[0.2em] uppercase">
+          {isArabic ? 'الخروج غير متاح حتى انتهاء الوقت' : 'NAVIGATION_LOCKED_UNTIL_FINISH'}
+        </p>
+      </div>
+    </motion.div>
+  );
+};
+
+const PrayerView = ({ 
+  userId, 
+  isArabic, 
+  selectedDate, 
+  setSelectedDate,
+  isQuranFocusActive, 
+  setIsQuranFocusActive, 
+  quranSecondsLeft, 
+  setQuranSecondsLeft, 
+  isQuranPaused, 
+  setIsQuranPaused 
+}: any) => {
+  const [data, setData] = useState<DayPrayers | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, `users/${userId}/prayers`, selectedDate), (snap) => {
+      const defaultData: DayPrayers = {
+        fajr: { completed: false, inMasjid: false, sunnahBefore: 0 },
+        dhuhr: { completed: false, inMasjid: false, sunnahBefore: 0, sunnahAfter: 0 },
+        asr: { completed: false, inMasjid: false, sunnahBefore: 0 },
+        maghrib: { completed: false, inMasjid: false, sunnahAfter: 0 },
+        isha: { completed: false, inMasjid: false, sunnahAfter: 0 },
+        quranWard: { completed: false, secondsRemaining: 900 }
+      };
+
+      if (snap.exists()) {
+        const firestoreData = snap.data();
+        // Deep merge with defaults to prevent crashes if fields are missing
+        const merged: DayPrayers = {
+          ...defaultData,
+          ...firestoreData,
+          fajr: { ...defaultData.fajr, ...firestoreData.fajr },
+          dhuhr: { ...defaultData.dhuhr, ...firestoreData.dhuhr },
+          asr: { ...defaultData.asr, ...firestoreData.asr },
+          maghrib: { ...defaultData.maghrib, ...firestoreData.maghrib },
+          isha: { ...defaultData.isha, ...firestoreData.isha },
+          quranWard: { ...defaultData.quranWard, ...firestoreData.quranWard }
+        };
+        setData(merged);
+      } else {
+        setData(defaultData);
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [userId, selectedDate]);
+
+  const updatePrayer = async (prayer: string, updates: any) => {
+    if (!data) return;
+    const ref = doc(db, `users/${userId}/prayers`, selectedDate);
+    await setDoc(ref, { [prayer]: { ...data[prayer as keyof DayPrayers], ...updates } }, { merge: true });
+  };
+
+  if (loading || !data) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={32} /></div>;
+
+  const PRAYER_LIST = [
+    { id: 'fajr', labelAr: 'الفجر', labelEn: 'Fajr', icon: Sun, before: 2, after: 0 },
+    { id: 'dhuhr', labelAr: 'الظهر', labelEn: 'Dhuhr', icon: Sun, before: 4, after: 2 },
+    { id: 'asr', labelAr: 'العصر', labelEn: 'Asr', icon: Sun, before: 4, after: 0 },
+    { id: 'maghrib', labelAr: 'المغرب', labelEn: 'Maghrib', icon: Moon, before: 0, after: 2 },
+    { id: 'isha', labelAr: 'العشاء', labelEn: 'Isha', icon: Moon, before: 0, after: 2 },
+  ];
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+      <DateNavigator selectedDate={selectedDate} setSelectedDate={setSelectedDate} isArabic={isArabic} todayStr={getSystemToday()} />
+
+      {/* Prayers Section */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        {PRAYER_LIST.map((p) => {
+          const pData = data[p.id as keyof DayPrayers] as PrayerRecord;
+          return (
+            <div key={p.id} className={cn(
+              "p-6 rounded-3xl border transition-all relative overflow-hidden group",
+              pData.completed 
+                ? "bg-emerald-500/5 border-emerald-500/20 shadow-lg shadow-emerald-500/5" 
+                : "bg-surface-container border-outline-variant/20 shadow-xl"
+            )}>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-3 rounded-2xl transition-colors",
+                    pData.completed ? "bg-emerald-500/20 text-emerald-400" : "bg-primary/10 text-primary"
+                  )}>
+                    <p.icon size={20} />
+                  </div>
+                  <span className="text-sm font-black tracking-widest uppercase">{isArabic ? p.labelAr : p.labelEn}</span>
+                </div>
+                <button 
+                  onClick={() => updatePrayer(p.id, { completed: !pData.completed })}
+                  className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90",
+                    pData.completed ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/40" : "bg-surface-container-highest border border-outline-variant text-on-surface-variant/40"
+                  )}
+                >
+                  <CheckCircle2 size={20} />
+                </button>
+              </div>
+
+              {/* Toggles */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-container-highest/20 border border-outline-variant/10">
+                  <div className="flex items-center gap-3">
+                    <Smartphone size={14} className="opacity-40" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">{isArabic ? 'في المسجد' : 'MASJID'}</span>
+                  </div>
+                  <button 
+                    onClick={() => updatePrayer(p.id, { inMasjid: !pData.inMasjid })}
+                    className={cn(
+                      "w-6 h-6 rounded-lg transition-all",
+                      pData.inMasjid ? "bg-primary shadow-sm" : "bg-on-surface/10"
+                    )}
+                  />
+                </div>
+
+                {/* Sunnah Sections */}
+                {p.before > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] opacity-40">
+                      <span>{isArabic ? 'سنة قبلية' : 'SUNNAH_BEFORE'}</span>
+                      <span>{pData.sunnahBefore || 0} / {p.before}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      {Array.from({ length: p.before }).map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => updatePrayer(p.id, { sunnahBefore: Math.max(0, (pData.sunnahBefore || 0) === i + 1 ? i : i + 1) })}
+                          className={cn(
+                            "flex-1 h-2 rounded-full transition-all",
+                            (pData.sunnahBefore || 0) > i ? "bg-amber-400" : "bg-on-surface/5 hover:bg-on-surface/10"
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {p.after > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.2em] opacity-40">
+                      <span>{isArabic ? 'سنة بعدية' : 'SUNNAH_AFTER'}</span>
+                      <span>{pData.sunnahAfter || 0} / {p.after}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      {Array.from({ length: p.after }).map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => updatePrayer(p.id, { sunnahAfter: Math.max(0, (pData.sunnahAfter || 0) === i + 1 ? i : i + 1) })}
+                          className={cn(
+                            "flex-1 h-2 rounded-full transition-all",
+                            (pData.sunnahAfter || 0) > i ? "bg-amber-400" : "bg-on-surface/5 hover:bg-on-surface/10"
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Quran Ward Card */}
+      <section className="bg-surface-container rounded-[2rem] border border-outline-variant/20 overflow-hidden shadow-2xl relative">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none" />
+        <div className="relative z-10 p-10 flex flex-col md:flex-row items-center justify-between gap-10">
+          <div className="flex items-center gap-8">
+            <div className="p-6 rounded-[2rem] bg-primary/10 text-primary shadow-xl shadow-primary/5">
+              <Moon size={48} />
+            </div>
+            <div>
+              <h2 className="text-4xl font-headline font-black tracking-tighter mb-2">
+                {isArabic ? 'الورد القرآني' : 'QURAN_DAILY_WARD'}
+              </h2>
+              <div className="flex items-center gap-4 text-xs font-bold text-on-surface-variant/60 uppercase tracking-widest">
+                <span>15 MIN GOAL</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                <span className={cn(data.quranWard.completed ? "text-emerald-400" : "text-amber-500")}>
+                  {data.quranWard.completed ? (isArabic ? 'تم الإنجاز' : 'COMPLETED') : (isArabic ? 'بانتظارك' : 'AWATING')}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 w-full md:w-auto">
+            {!data.quranWard.completed && (
+              <button
+                onClick={() => {
+                  setQuranSecondsLeft(900);
+                  setIsQuranPaused(false);
+                  setIsQuranFocusActive(true);
+                }}
+                className="flex-1 md:flex-none px-12 py-6 rounded-3xl bg-primary text-surface font-black text-xs tracking-[0.4em] uppercase shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-4"
+              >
+                <Zap size={20} />
+                {isArabic ? 'ابدأ الورد (تركيز)' : 'START_FOCUS_WARD'}
+              </button>
+            )}
+            
+            <button
+               onClick={async () => {
+                 const ref = doc(db, `users/${userId}/prayers`, selectedDate);
+                 await setDoc(ref, { quranWard: { ...data.quranWard, completed: !data.quranWard.completed } }, { merge: true });
+               }}
+               className={cn(
+                 "flex-1 md:flex-none px-12 py-6 rounded-3xl font-black text-xs tracking-[0.4em] uppercase transition-all flex items-center justify-center gap-4",
+                 data.quranWard.completed 
+                  ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20" 
+                  : "bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant hover:text-primary"
+               )}
+            >
+              {data.quranWard.completed ? <CheckCircle2 size={20} /> : <div className="w-5 h-5 rounded-full border-2 border-current opacity-20" />}
+              {isArabic ? 'تمييز كمكتمل' : 'MARK_AS_DONE'}
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
@@ -2498,6 +2854,10 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isArabic, setIsArabic] = useState(() => localStorage.getItem('isArabic') === 'true');
+  const [isWealthHidden, setIsWealthHidden] = useState(true);
+  const [isQuranFocusActive, setIsQuranFocusActive] = useState(false);
+  const [quranSecondsLeft, setQuranSecondsLeft] = useState(900); // 15 minutes
+  const [isQuranPaused, setIsQuranPaused] = useState(true);
 
   const todayStr = getSystemToday();
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -2587,22 +2947,36 @@ export default function App() {
       case 'MEDICAL': return 'MEDICAL OS / VITAL SIGNS';
       case 'FINANCIAL': return 'FINANCIAL OS / WALLETS';
       case 'NUTRITION': return 'NUTRITION OS / METABOLICS';
+      case 'PRAYER': return 'SPIRITUAL OS / PRAYER & QURAN';
       default: return 'PERSONAL OS';
     }
   };
 
+  const getArTitle = () => {
+    switch (mode) {
+      case 'DASHBOARD': return 'الرئيسية';
+      case 'MEDICAL': return 'النظام الطبي';
+      case 'FINANCIAL': return 'المالية';
+      case 'NUTRITION': return 'التغذية';
+      case 'PRAYER': return 'الصلاة والقرآن';
+      default: return 'النظام';
+    }
+  }
+
   return (
     <div className="min-h-screen bg-surface" dir={isArabic ? 'rtl' : 'ltr'}>
       <GlobalStyles />
-      <TopBar
-        title={getTitle()}
-        isArabic={isArabic}
-        toggleLanguage={() => setIsArabic(v => !v)}
-        user={user}
-        onLogout={handleLogout}
-      />
+      {!isQuranFocusActive && (
+        <TopBar
+          title={isArabic ? getArTitle() : getTitle()}
+          isArabic={isArabic}
+          toggleLanguage={() => setIsArabic(v => !v)}
+          user={user}
+          onLogout={handleLogout}
+        />
+      )}
 
-      <main className="pt-16 px-4 sm:px-6 lg:px-10 pb-28">
+      <main className={cn(isQuranFocusActive ? "p-0" : "pt-32 px-6 sm:px-12 lg:px-20 pb-28")}>
         <AnimatePresence mode="wait">
           <motion.div
             key={mode}
@@ -2611,20 +2985,50 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
           >
-            {mode === 'DASHBOARD' && user && <DashboardView userId={user.uid} isArabic={isArabic} setMode={setMode} selectedDate={selectedDate} setSelectedDate={setSelectedDate} viewMode={viewMode} setViewMode={setViewMode} />}
+            {mode === 'DASHBOARD' && user && <DashboardView userId={user.uid} isArabic={isArabic} setMode={setMode} selectedDate={selectedDate} setSelectedDate={setSelectedDate} viewMode={viewMode} setViewMode={setViewMode} isWealthHidden={isWealthHidden} setIsWealthHidden={setIsWealthHidden} />}
             {mode === 'MEDICAL' && user && <MedicalView userId={user.uid} isArabic={isArabic} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />}
-            {mode === 'FINANCIAL' && user && <FinancialView userId={user.uid} isArabic={isArabic} selectedDate={selectedDate} />}
+            {mode === 'FINANCIAL' && user && <FinancialView userId={user.uid} isArabic={isArabic} selectedDate={selectedDate} isWealthHidden={isWealthHidden} setIsWealthHidden={setIsWealthHidden} />}
             {mode === 'NUTRITION' && user && <NutritionView userId={user.uid} isArabic={isArabic} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />}
-
+            {mode === 'PRAYER' && user && (
+              <PrayerView 
+                userId={user.uid} 
+                isArabic={isArabic} 
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+                isQuranFocusActive={isQuranFocusActive}
+                setIsQuranFocusActive={setIsQuranFocusActive}
+                quranSecondsLeft={quranSecondsLeft}
+                setQuranSecondsLeft={setQuranSecondsLeft}
+                isQuranPaused={isQuranPaused}
+                setIsQuranPaused={setIsQuranPaused}
+              />
+            )}
           </motion.div>
         </AnimatePresence>
       </main>
 
-      <BottomNav activeMode={mode} setMode={setMode} isArabic={isArabic} />
+      {!isQuranFocusActive && (
+        <BottomNav
+          activeMode={mode}
+          setMode={setMode}
+          isArabic={isArabic}
+        />
+      )}
 
       {/* Global Medication Reminder Overlay */}
-      {user && mode !== 'LOADING' && mode !== 'AUTH' && (
+      {user && mode !== 'LOADING' && mode !== 'AUTH' && !isQuranFocusActive && (
         <MedicationReminderOverlay userId={user.uid} isArabic={isArabic} setMode={setMode} />
+      )}
+
+      {isQuranFocusActive && (
+        <QuranFocusOverlay 
+          isArabic={isArabic}
+          quranSecondsLeft={quranSecondsLeft}
+          setQuranSecondsLeft={setQuranSecondsLeft}
+          isQuranPaused={isQuranPaused}
+          setIsQuranPaused={setIsQuranPaused}
+          onFinish={() => setIsQuranFocusActive(false)}
+        />
       )}
     </div>
   );
