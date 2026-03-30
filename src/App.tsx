@@ -11,6 +11,38 @@ import {
 
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
+import { Coordinates, CalculationMethod, PrayerTimes } from 'adhan';
+
+// --- System Configuration & Helpers ---
+const CAIRO_COORDS = new Coordinates(30.0444, 31.2357);
+const PRAYER_PARAMS = CalculationMethod.Egyptian();
+
+/** 
+ * Gets the "Effective Today" based on Fajr prayer time.
+ * If current time is before Fajr, the effective date is yesterday.
+ */
+const getSystemToday = () => {
+  const now = new Date();
+  const prayerTimes = new PrayerTimes(CAIRO_COORDS, now, PRAYER_PARAMS);
+  const fajr = prayerTimes.fajr;
+
+  const effectiveDate = new Date(now);
+  if (now < fajr) {
+    effectiveDate.setDate(now.getDate() - 1);
+  }
+
+  const y = effectiveDate.getFullYear();
+  const m = String(effectiveDate.getMonth() + 1).padStart(2, '0');
+  const d = String(effectiveDate.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const formatDateLocal = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 const GlobalStyles = () => (
   <style>{`
@@ -58,7 +90,7 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth';
 import {
-  collection, addDoc, deleteDoc, onSnapshot, query, orderBy, getDoc, setDoc, runTransaction, where, doc, serverTimestamp, type Timestamp
+  collection, addDoc, deleteDoc, onSnapshot, query, orderBy, getDoc, getDocs, setDoc, runTransaction, where, doc, serverTimestamp, type Timestamp
 } from 'firebase/firestore';
 
 
@@ -177,6 +209,84 @@ interface MedicalRecord {
   date: string;
   createdAt: any;
 }
+
+// --- Shared Components ---
+
+const DateNavigator = ({ selectedDate, setSelectedDate, isArabic, todayStr }: {
+  selectedDate: string,
+  setSelectedDate: (d: string) => void,
+  isArabic: boolean,
+  todayStr: string
+}) => {
+  const isToday = selectedDate === todayStr;
+  const isYesterday = selectedDate === formatDateLocal(new Date(Date.now() - 86400000));
+
+  const adjustDate = (delta: number) => {
+    const d = new Date(selectedDate + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    const next = formatDateLocal(d);
+    if (next <= todayStr) setSelectedDate(next);
+  };
+
+  const getDateLabel = () => {
+    if (isToday) return isArabic ? 'اليوم' : 'Today';
+    if (isYesterday) return isArabic ? 'أمس' : 'Yesterday';
+    return new Date(selectedDate + 'T12:00:00').toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  return (
+    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => adjustDate(-1)}
+            className="w-10 h-10 rounded-2xl bg-surface-variant/30 border border-outline-variant/10 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-on-surface-variant"
+          >
+            <ChevronRight size={20} />
+          </button>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-4xl font-headline font-black text-on-surface">{getDateLabel()}</h1>
+              {isToday && (
+                <span className="px-3 py-1 rounded-full bg-primary/15 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
+                  {isArabic ? 'الآن' : 'LIVE'}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] font-bold tracking-[0.35em] text-primary/50 uppercase mt-1">
+              {new Date(selectedDate + 'T12:00:00').toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+          <button
+            onClick={() => adjustDate(1)}
+            disabled={isToday}
+            className="w-10 h-10 rounded-2xl bg-surface-variant/30 border border-outline-variant/10 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-on-surface-variant disabled:opacity-20 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            type="date"
+            value={selectedDate}
+            max={todayStr}
+            onChange={(e) => { if (e.target.value <= todayStr) setSelectedDate(e.target.value); }}
+            className="recessed-input text-xs py-2.5 px-4"
+          />
+          {!isToday && (
+            <button
+              onClick={() => setSelectedDate(todayStr)}
+              className="px-5 py-2.5 rounded-2xl bg-primary text-surface font-bold text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+            >
+              {isArabic ? '← اليوم' : 'Back to Today →'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // --- Components ---
 
@@ -449,9 +559,18 @@ const AuthView = ({ onLogin, isLoading, error, isArabic }: { onLogin: () => void
 
 // --- View: Dashboard ---
 
-const DashboardView = ({ userId, isArabic, setMode }: { userId: string, isArabic: boolean, setMode: (m: AppMode) => void }) => {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [dashDate, setDashDate] = useState(todayStr);
+const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDate, viewMode, setViewMode }: { 
+  userId: string, 
+  isArabic: boolean, 
+  setMode: (m: AppMode) => void,
+  selectedDate: string,
+  setSelectedDate: (d: string) => void,
+  viewMode: 'DAILY' | 'WEEKLY',
+  setViewMode: (v: 'DAILY' | 'WEEKLY') => void
+}) => {
+  const todayStr = getSystemToday();
+  const dashDate = selectedDate; 
+  const setDashDate = setSelectedDate;
 
   const [medData, setMedData] = useState<{ checked: number, total: number }>({ checked: 0, total: 0 });
   const [nutritionEntries, setNutritionEntries] = useState<NutritionEntry[]>([]);
@@ -461,6 +580,12 @@ const DashboardView = ({ userId, isArabic, setMode }: { userId: string, isArabic
   const [nutLoading, setNutLoading] = useState(true);
   const [finLoading, setFinLoading] = useState(true);
 
+  // Weekly Stats State
+  const [weeklyMed, setWeeklyMed] = useState({ checked: 0, total: 0 });
+  const [weeklyNut, setWeeklyNut] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0, count: 0 });
+  const [weeklyFin, setWeeklyFin] = useState({ income: 0, expense: 0 });
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+
   // Greeting based on time
   const hour = new Date().getHours();
   const greeting = isArabic
@@ -468,20 +593,74 @@ const DashboardView = ({ userId, isArabic, setMode }: { userId: string, isArabic
     : hour < 12 ? 'Good Morning ☀️' : hour < 17 ? 'Good Afternoon 🌤️' : 'Good Evening 🌙';
 
   const isToday = dashDate === todayStr;
-  const isYesterday = dashDate === new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  
+  // Weekly aggregation logic
+  useEffect(() => {
+    if (viewMode !== 'WEEKLY') return;
+    
+    setWeeklyLoading(true);
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(dashDate + 'T12:00:00');
+      d.setDate(d.getDate() - i);
+      return formatDateLocal(d);
+    });
 
-  const getDateLabel = () => {
-    if (isToday) return isArabic ? 'اليوم' : 'Today';
-    if (isYesterday) return isArabic ? 'أمس' : 'Yesterday';
-    return new Date(dashDate + 'T12:00:00').toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' });
-  };
+    const fetchWeekly = async () => {
+      try {
+        // 1. Weekly Medical
+        let wChecked = 0;
+        let wTotal = 0;
+        for (const dStr of last7Days) {
+          const mSnap = await getDoc(doc(db, `users/${userId}/medcheck`, dStr));
+          if (mSnap.exists()) {
+            wChecked += Object.values(mSnap.data()).filter(v => v === true).length;
+          }
+          wTotal += MEDICINE_SCHEDULE.reduce((sum, med) => {
+            const isScheduled = med.frequency === 'daily' || (med.weekDays && med.weekDays.includes(new Date(dStr + 'T12:00:00').getDay()));
+            return sum + (isScheduled ? med.doses.length : 0);
+          }, 0);
+        }
+        setWeeklyMed({ checked: wChecked, total: wTotal });
 
-  const adjustDate = (delta: number) => {
-    const d = new Date(dashDate + 'T12:00:00');
-    d.setDate(d.getDate() + delta);
-    const next = d.toISOString().split('T')[0];
-    if (next <= todayStr) setDashDate(next);
-  };
+        // 2. Weekly Nutrition
+        const startOf7 = new Date(last7Days[6] + 'T00:00:00');
+        const endOf7 = new Date(last7Days[0] + 'T23:59:59');
+        const nQuery = query(collection(db, `users/${userId}/nutrition`), where('createdAt', '>=', startOf7), where('createdAt', '<=', endOf7));
+        const nSnap = await getDocs(nQuery);
+        const nData = nSnap.docs.reduce((acc, d) => {
+          const entry = d.data();
+          return {
+            calories: acc.calories + (entry.calories || 0),
+            protein: acc.protein + (entry.protein || 0),
+            carbs: acc.carbs + (entry.carbs || 0),
+            fat: acc.fat + (entry.fat || 0),
+            count: acc.count + 1
+          };
+        }, { calories: 0, protein: 0, carbs: 0, fat: 0, count: 0 });
+        setWeeklyNut(nData);
+
+        // 3. Weekly Financial
+        const fQuery = query(collection(db, `users/${userId}/financial`), where('date', '>=', last7Days[6]), where('date', '<=', last7Days[0]));
+        const fSnap = await getDocs(fQuery);
+        const fData = fSnap.docs.reduce((acc, d) => {
+          const entry = d.data();
+          const isExp = entry.type === 'Expense' || entry.type === 'Debt (Owed To Someone)' || entry.type === 'Loan Given (Expense)';
+          return {
+            income: acc.income + (!isExp ? entry.amount : 0),
+            expense: acc.expense + (isExp ? entry.amount : 0)
+          };
+        }, { income: 0, expense: 0 });
+        setWeeklyFin(fData);
+
+      } catch (err) {
+        console.error("Weekly fetch error:", err);
+      } finally {
+        setWeeklyLoading(false);
+      }
+    };
+
+    fetchWeekly();
+  }, [viewMode, userId, dashDate]);
 
   // Accurate total doses
   const totalDoses = MEDICINE_SCHEDULE.reduce((sum, med) => {
@@ -588,118 +767,141 @@ const DashboardView = ({ userId, isArabic, setMode }: { userId: string, isArabic
         <div className="relative z-10 p-8">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
 
-            {/* Left: Greeting + Date Nav */}
-            <div className="space-y-4">
-              {isToday && (
-                <p className="text-base font-bold text-on-surface/60">{greeting}</p>
-              )}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => adjustDate(-1)}
-                  className="w-10 h-10 rounded-2xl bg-surface-variant/30 border border-outline-variant/10 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-on-surface-variant"
-                >
-                  <ChevronRight size={20} />
-                </button>
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-4xl font-headline font-black text-on-surface">{getDateLabel()}</h1>
-                    {isToday && (
-                      <span className="px-3 py-1 rounded-full bg-primary/15 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
-                        {isArabic ? 'الآن' : 'LIVE'}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] font-bold tracking-[0.35em] text-primary/50 uppercase mt-1">
-                    {new Date(dashDate + 'T12:00:00').toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
-                </div>
-                <button
-                  onClick={() => adjustDate(1)}
-                  disabled={isToday}
-                  className="w-10 h-10 rounded-2xl bg-surface-variant/30 border border-outline-variant/10 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-on-surface-variant disabled:opacity-20 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  type="date"
-                  value={dashDate}
-                  max={todayStr}
-                  onChange={(e) => { if (e.target.value <= todayStr) setDashDate(e.target.value); }}
-                  className="recessed-input text-xs py-2.5 px-4"
-                />
-                {!isToday && (
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-4 w-full">
+              <DateNavigator selectedDate={dashDate} setSelectedDate={setDashDate} isArabic={isArabic} todayStr={todayStr} />
+              
+              <div className="flex flex-col items-end gap-3 shrink-0">
+                <div className="flex bg-surface-container-high rounded-2xl p-1 border border-outline-variant/10 shadow-inner">
                   <button
-                    onClick={() => setDashDate(todayStr)}
-                    className="px-5 py-2.5 rounded-2xl bg-primary text-surface font-bold text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                    onClick={() => setViewMode('DAILY')}
+                    className={cn(
+                      "px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all",
+                      viewMode === 'DAILY' ? "bg-primary text-surface shadow-lg" : "text-on-surface-variant hover:text-primary"
+                    )}
                   >
-                    {isArabic ? '← اليوم' : 'Back to Today →'}
+                    {isArabic ? 'اليومي' : 'DAILY'}
                   </button>
+                  <button
+                    onClick={() => setViewMode('WEEKLY')}
+                    className={cn(
+                      "px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all",
+                      viewMode === 'WEEKLY' ? "bg-primary text-surface shadow-lg" : "text-on-surface-variant hover:text-primary"
+                    )}
+                  >
+                    {isArabic ? 'الأسبوعي' : 'WEEKLY'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {viewMode === 'WEEKLY' ? (
+              /* Weekly Insights View */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8 w-full">
+                {weeklyLoading ? (
+                  <div className="col-span-full py-10 flex justify-center"><Loader2 className="animate-spin text-primary" size={32} /></div>
+                ) : (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                      className="bg-primary/5 border border-primary/10 rounded-3xl p-6 relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 p-4 opacity-10"><Pill size={24} /></div>
+                      <h4 className="text-[9px] font-black tracking-[0.3em] text-primary uppercase mb-4">{isArabic ? 'الالتزام بالعلاج' : 'ADHERENCE'}</h4>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-black font-headline">{weeklyMed.total > 0 ? Math.round((weeklyMed.checked / weeklyMed.total) * 100) : 0}%</span>
+                        <span className="text-[10px] font-bold opacity-30 uppercase">{weeklyMed.checked}/{weeklyMed.total}</span>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
+                      className="bg-amber-400/5 border border-amber-400/10 rounded-3xl p-6 relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 p-4 opacity-10"><Salad size={24} /></div>
+                      <h4 className="text-[9px] font-black tracking-[0.3em] text-amber-500 uppercase mb-4">{isArabic ? 'متوسط السعرات' : 'AVG_CALORIES'}</h4>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-black font-headline">{Math.round(weeklyNut.calories / 7)}</span>
+                        <span className="text-[10px] font-bold opacity-30 uppercase">kcal/day</span>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
+                      className="bg-emerald-400/5 border border-emerald-400/10 rounded-3xl p-6 relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 p-4 opacity-10"><Wallet size={24} /></div>
+                      <h4 className="text-[9px] font-black tracking-[0.3em] text-emerald-500 uppercase mb-4">{isArabic ? 'صافي الميزانية' : 'NET_FLOW'}</h4>
+                      <div className="flex items-baseline gap-2">
+                        <span className={cn("text-4xl font-black font-headline", (weeklyFin.income - weeklyFin.expense) >= 0 ? "text-primary" : "text-red-400")}>
+                          {(weeklyFin.income - weeklyFin.expense).toLocaleString()}
+                        </span>
+                        <span className="text-[10px] font-bold opacity-30 uppercase">EGP</span>
+                      </div>
+                    </motion.div>
+                  </>
                 )}
               </div>
-            </div>
-
-            {/* Right: Day Score Meter */}
-            <div className="flex items-center gap-6 p-6 rounded-3xl bg-surface-variant/10 border border-outline-variant/10">
-              <div className="relative w-28 h-28 flex-shrink-0">
-                <svg className="w-full h-full -rotate-90">
-                  <circle cx="56" cy="56" r="48" fill="transparent" stroke="currentColor" strokeWidth="6" className="text-surface-container-highest" />
-                  <motion.circle
-                    key={dashDate}
-                    initial={{ strokeDashoffset: 301.6 }}
-                    animate={{ strokeDashoffset: 301.6 * (1 - dayScore / 100) }}
-                    transition={{ duration: 1.5, ease: 'easeOut' }}
-                    cx="56" cy="56" r="48" fill="transparent"
-                    stroke="url(#scoreGrad)" strokeWidth="6"
-                    strokeDasharray="301.6" strokeLinecap="round"
-                  />
-                  <defs>
-                    <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#6366f1" />
-                      <stop offset="100%" stopColor="#10b981" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-headline font-black text-on-surface">{dayScore}</span>
-                  <span className="text-[8px] font-bold uppercase tracking-widest opacity-40">/ 100</span>
+            ) : (
+              /* Right: Day Score Meter (Existing) */
+              <div className="flex items-center gap-6 p-6 rounded-3xl bg-surface-variant/10 border border-outline-variant/10">
+                <div className="relative w-28 h-28 flex-shrink-0">
+                  <svg className="w-full h-full -rotate-90">
+                    <circle cx="56" cy="56" r="48" fill="transparent" stroke="currentColor" strokeWidth="6" className="text-surface-container-highest" />
+                    <motion.circle
+                      key={dashDate}
+                      initial={{ strokeDashoffset: 301.6 }}
+                      animate={{ strokeDashoffset: 301.6 * (1 - dayScore / 100) }}
+                      transition={{ duration: 1.5, ease: 'easeOut' }}
+                      cx="56" cy="56" r="48" fill="transparent"
+                      stroke="url(#scoreGrad)" strokeWidth="6"
+                      strokeDasharray="301.6" strokeLinecap="round"
+                    />
+                    <defs>
+                      <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#10b981" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-headline font-black text-on-surface">{dayScore}</span>
+                    <span className="text-[8px] font-bold uppercase tracking-widest opacity-40">/ 100</span>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-black tracking-[0.3em] uppercase text-primary">
-                  {isArabic ? 'نقاط اليوم' : 'DAY_SCORE'}
-                </p>
-                <p className="text-sm font-bold text-on-surface/70 max-w-[140px]">
-                  {dayScore >= 80
-                    ? (isArabic ? 'يوم ممتاز! 🏆' : 'Excellent day! 🏆')
-                    : dayScore >= 50
-                      ? (isArabic ? 'يوم جيد 💪' : 'Good day 💪')
-                      : (isArabic ? 'يمكنك أفضل 🎯' : 'You can do better 🎯')}
-                </p>
-                <div className="space-y-1 pt-1">
-                  {[
-                    { label: isArabic ? 'طبي' : 'Medical', val: medProgress, color: 'bg-primary' },
-                    { label: isArabic ? 'تغذية' : 'Nutrition', val: calProgress, color: 'bg-amber-400' },
-                    { label: isArabic ? 'مالية' : 'Finance', val: financialEntries.length > 0 ? 100 : 0, color: 'bg-emerald-400' },
-                  ].map(item => (
-                    <div key={item.label} className="flex items-center gap-2">
-                      <span className="text-[9px] w-14 font-bold opacity-40 uppercase">{item.label}</span>
-                      <div className="flex-1 h-1 bg-surface-container-high rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${item.val}%` }}
-                          transition={{ duration: 1, ease: 'easeOut' }}
-                          className={`h-full ${item.color}`}
-                        />
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black tracking-[0.3em] uppercase text-primary">
+                    {isArabic ? 'نقاط اليوم' : 'DAY_SCORE'}
+                  </p>
+                  <p className="text-sm font-bold text-on-surface/70 max-w-[140px]">
+                    {dayScore >= 80
+                      ? (isArabic ? 'يوم ممتاز! 🏆' : 'Excellent day! 🏆')
+                      : dayScore >= 50
+                        ? (isArabic ? 'يوم جيد 💪' : 'Good day 💪')
+                        : (isArabic ? 'يمكنك أفضل 🎯' : 'You can do better 🎯')}
+                  </p>
+                  <div className="space-y-1 pt-1">
+                    {[
+                      { label: isArabic ? 'طبي' : 'Medical', val: medProgress, color: 'bg-primary' },
+                      { label: isArabic ? 'تغذية' : 'Nutrition', val: calProgress, color: 'bg-amber-400' },
+                      { label: isArabic ? 'مالية' : 'Finance', val: financialEntries.length > 0 ? 100 : 0, color: 'bg-emerald-400' },
+                    ].map(item => (
+                      <div key={item.label} className="flex items-center gap-2">
+                        <span className="text-[9px] w-14 font-bold opacity-40 uppercase">{item.label}</span>
+                        <div className="flex-1 h-1 bg-surface-container-high rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${item.val}%` }}
+                            transition={{ duration: 1, ease: 'easeOut' }}
+                            className={`h-full ${item.color}`}
+                          />
+                        </div>
+                        <span className="text-[9px] font-mono opacity-40 w-8 text-right">{item.val}%</span>
                       </div>
-                      <span className="text-[9px] font-mono opacity-40 w-8 text-right">{item.val}%</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </header>
@@ -1070,10 +1272,16 @@ const DashboardView = ({ userId, isArabic, setMode }: { userId: string, isArabic
 
 
 
-const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }) => {
+const MedicalView = ({ userId, isArabic, selectedDate, setSelectedDate }: { 
+  userId: string, 
+  isArabic: boolean,
+  selectedDate: string,
+  setSelectedDate: (d: string) => void
+}) => {
 
-  const today = new Date().toISOString().split('T')[0];
-  const todayJS = new Date().getDay(); // 0=Sun … 6=Sat
+  const today = selectedDate;
+  const todayStr = getSystemToday();
+  const todayJS = new Date(today).getDay(); // 0=Sun … 6=Sat
 
   const [checks, setChecks] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -1139,7 +1347,7 @@ const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }
   );
   const progress = totalDoses > 0 ? Math.round((checkedDoses / totalDoses) * 100) : 0;
 
-  const todayDateStr = new Date().toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', {
+  const todayDateStr = new Date(today + 'T12:00:00').toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
@@ -1247,6 +1455,11 @@ const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }
 
         {/* Sidebar: Progress & Summary (Second in source = Left in RTL) */}
         <div className="xl:col-span-4 space-y-6 order-2">
+          
+          <div className="bg-surface-container rounded-3xl p-6 border border-outline-variant/10 mb-6">
+            <DateNavigator selectedDate={selectedDate} setSelectedDate={setSelectedDate} isArabic={isArabic} todayStr={todayStr} />
+          </div>
+
           <div className="bg-surface-container rounded-3xl p-8 border border-outline-variant/20 shadow-2xl relative overflow-hidden group">
             <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
             <div className="relative z-10">
@@ -1294,8 +1507,8 @@ const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }
             <h4 className="text-[10px] font-black tracking-[0.2em] text-primary uppercase mb-4">Medical Continuity</h4>
             <p className="text-xs leading-relaxed font-medium opacity-70">
               {isArabic
-                ? "يتم تتبع الجرعات يومياً. يتم إعادة ضبط الجدول تلقائياً عند منتصف الليل لبدء بروتوكول جديد."
-                : "Doses are tracked daily. The schedule resets automatically at midnight for the next protocol cycle."}
+                ? "يتم تتبع الجرعات يومياً. يتم إعادة ضبط الجدول تلقائياً عند صلاة الفجر لبدء بروتوكول جديد."
+                : "Doses are tracked daily. The schedule resets automatically at Fajr for the next protocol cycle."}
             </p>
           </section>
         </div>
@@ -1310,7 +1523,11 @@ const MedicalView = ({ userId, isArabic }: { userId: string, isArabic: boolean }
 
 // --- View: Financial ---
 
-const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean }) => {
+const FinancialView = ({ userId, isArabic, selectedDate }: { 
+  userId: string, 
+  isArabic: boolean,
+  selectedDate: string 
+}) => {
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
   const [accounts, setAccounts] = useState<AccountSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1320,7 +1537,7 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
     type: 'Expense',
     amount: '',
     source: '',
-    date: new Date().toISOString().split('T')[0],
+    date: selectedDate,
     accountId: 'CASH'
   });
 
@@ -1349,7 +1566,7 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
       setLoading(false);
 
       // --- Auto-Settle Pending Transactions ---
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getSystemToday();
       const pendingToSettle = fetchedEntries.filter(e => e.status === 'PENDING' && e.date <= todayStr);
       
       if (pendingToSettle.length > 0) {
@@ -1710,7 +1927,7 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
                         {editingId && (
                           <button
                             type="button"
-                            onClick={() => { setEditingId(null); setIsFormOpen(false); setForm({ ...form, amount: '', source: '', date: new Date().toISOString().split('T')[0] }); }}
+                            onClick={() => { setEditingId(null); setIsFormOpen(false); setForm({ ...form, amount: '', source: '', date: getSystemToday() }); }}
                             className="px-6 rounded-2xl bg-outline-variant/10 text-on-surface-variant font-bold text-[10px] tracking-widest uppercase hover:bg-outline-variant/20 transition-all font-mono"
                           >
                             {isArabic ? 'إلغاء' : 'CANCEL'}
@@ -1753,8 +1970,8 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
                 const showDateHeader = !prevEntry || prevEntry.date !== entry.date;
 
                 let dateDisplay = entry.date;
-                if (entry.date === new Date().toISOString().split('T')[0]) dateDisplay = isArabic ? 'اليوم' : 'Today';
-                else if (entry.date === new Date(Date.now() - 86400000).toISOString().split('T')[0]) dateDisplay = isArabic ? 'أمس' : 'Yesterday';
+                if (entry.date === getSystemToday()) dateDisplay = isArabic ? 'اليوم' : 'Today';
+                else if (entry.date === formatDateLocal(new Date(Date.now() - 86400000))) dateDisplay = isArabic ? 'أمس' : 'Yesterday';
 
                 return (
                   <div key={entry.id}>
@@ -1927,21 +2144,30 @@ const FinancialView = ({ userId, isArabic }: { userId: string, isArabic: boolean
 
 // --- View: Nutrition ---
 
-const NutritionView = ({ userId, isArabic }: { userId: string, isArabic: boolean }) => {
+const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: { 
+  userId: string, 
+  isArabic: boolean,
+  selectedDate: string,
+  setSelectedDate: (d: string) => void
+}) => {
+  const todayStr = getSystemToday();
+  const nutriDate = selectedDate;
+  const setNutriDate = setSelectedDate;
   const [entries, setEntries] = useState<NutritionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-
   const [form, setForm] = useState({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '' });
 
   useEffect(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    // Start and end of the SELECTED date
+    const startOfTarget = new Date(nutriDate + 'T00:00:00');
+    const endOfTarget = new Date(nutriDate + 'T23:59:59');
 
     const q = query(
       collection(db, `users/${userId}/nutrition`),
-      where('createdAt', '>=', startOfToday),
+      where('createdAt', '>=', startOfTarget),
+      where('createdAt', '<=', endOfTarget),
       orderBy('createdAt', 'desc')
     );
     const unsub = onSnapshot(q, (snap) => {
@@ -1949,7 +2175,7 @@ const NutritionView = ({ userId, isArabic }: { userId: string, isArabic: boolean
       setLoading(false);
     });
     return () => unsub();
-  }, [userId]);
+  }, [userId, nutriDate]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1964,7 +2190,7 @@ const NutritionView = ({ userId, isArabic }: { userId: string, isArabic: boolean
         protein: parseFloat(form.protein) || 0,
         carbs: parseFloat(form.carbs) || 0,
         fat: parseFloat(form.fat) || 0,
-        createdAt: serverTimestamp(),
+        createdAt: nutriDate === getSystemToday() ? serverTimestamp() : new Date(nutriDate + 'T' + new Date().toTimeString().split(' ')[0]),
       });
       setForm({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '' });
     } catch (err) {
@@ -2008,15 +2234,7 @@ const NutritionView = ({ userId, isArabic }: { userId: string, isArabic: boolean
     return timeB - timeA;
   });
 
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({
-    BREAKFAST: true,
-    LUNCH: true,
-    PRE_WORKOUT: true,
-    INTRA_WORKOUT: true,
-    POST_WORKOUT: true,
-    SNACK: true,
-    GENERAL: true
-  });
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
 
   const toggleCategory = (cat: string) => {
     setOpenCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
@@ -2050,20 +2268,7 @@ const NutritionView = ({ userId, isArabic }: { userId: string, isArabic: boolean
       {/* Daily Protocol Header */}
       <section className="bg-surface-container rounded-3xl p-8 border border-outline-variant/20 shadow-2xl relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
-        <div className="relative z-10 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-1">
-              {isArabic ? 'البروتوكول الغذائي اليومي' : 'DAILY_NUTRITION_PROTOCOL'}
-            </p>
-            <h1 className="text-3xl font-headline font-black text-on-surface">
-              {new Date().toLocaleDateString(isArabic ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[9px] font-mono text-primary/60 uppercase">Real-Time Tracker</span>
-          </div>
-        </div>
+        <DateNavigator selectedDate={nutriDate} setSelectedDate={setNutriDate} isArabic={isArabic} todayStr={todayStr} />
       </section>
 
       <section>
@@ -2294,6 +2499,10 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isArabic, setIsArabic] = useState(() => localStorage.getItem('isArabic') === 'true');
 
+  const todayStr = getSystemToday();
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [viewMode, setViewMode] = useState<'DAILY' | 'WEEKLY'>('DAILY');
+
   useEffect(() => {
     localStorage.setItem('isArabic', isArabic ? 'true' : 'false');
     document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
@@ -2402,10 +2611,10 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
           >
-            {mode === 'DASHBOARD' && user && <DashboardView userId={user.uid} isArabic={isArabic} setMode={setMode} />}
-            {mode === 'MEDICAL' && user && <MedicalView userId={user.uid} isArabic={isArabic} />}
-            {mode === 'FINANCIAL' && user && <FinancialView userId={user.uid} isArabic={isArabic} />}
-            {mode === 'NUTRITION' && user && <NutritionView userId={user.uid} isArabic={isArabic} />}
+            {mode === 'DASHBOARD' && user && <DashboardView userId={user.uid} isArabic={isArabic} setMode={setMode} selectedDate={selectedDate} setSelectedDate={setSelectedDate} viewMode={viewMode} setViewMode={setViewMode} />}
+            {mode === 'MEDICAL' && user && <MedicalView userId={user.uid} isArabic={isArabic} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />}
+            {mode === 'FINANCIAL' && user && <FinancialView userId={user.uid} isArabic={isArabic} selectedDate={selectedDate} />}
+            {mode === 'NUTRITION' && user && <NutritionView userId={user.uid} isArabic={isArabic} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />}
 
           </motion.div>
         </AnimatePresence>
