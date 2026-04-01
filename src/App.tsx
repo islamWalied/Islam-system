@@ -153,6 +153,21 @@ const MEDICINE_SCHEDULE = [
     ]
   },
   {
+    id: 'omega3',
+    nameLine1: 'أوميجا ٣',
+    nameLine2: 'Omega 3',
+    Icon: Pill,
+    colorText: 'text-amber-400' as const,
+    colorBg: 'bg-amber-400/10' as const,
+    colorBorder: 'border-amber-400/30' as const,
+    instruction: 'حبة واحدة يومياً في منتصف الأكل',
+    frequency: 'daily' as const,
+    weekDays: null as number[] | null,
+    doses: [
+      { idx: 0, time: '15:00', displayTime: '3:00 م', note: 'في منتصف الأكل' }
+    ]
+  },
+  {
     id: 'justin',
     nameLine1: 'شامبو Justin',
     nameLine2: 'Justin Shampoo',
@@ -608,6 +623,22 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
   const [weeklyFin, setWeeklyFin] = useState({ income: 0, expense: 0 });
   const [weeklyLoading, setWeeklyLoading] = useState(false);
 
+  // --- Active Mission Logic ---
+  const [activeMission, setActiveMission] = useState<{
+    type: 'PRAYER' | 'MEDICAL' | 'QURAN' | 'NONE';
+    labelAr: string;
+    labelEn: string;
+    subLabelAr: string;
+    subLabelEn: string;
+    time?: string;
+    icon: any;
+    color: string;
+    action?: () => void;
+  } | null>(null);
+
+  const [prayerData, setPrayerData] = useState<DayPrayers | null>(null);
+  const [medChecks, setMedChecks] = useState<Record<string, boolean>>({});
+
   // Greeting based on time
   const hour = new Date().getHours();
   const greeting = isArabic
@@ -738,11 +769,135 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
       setAccounts(snap.docs.map(d => ({ id: d.id, ...d.data() } as AccountSnapshot)));
     }, () => { });
 
+    // 5. Prayer data for Quran Ward status
+    const prayUnsub = onSnapshot(doc(db, `users/${userId}/prayers`, dashDate), (snap) => {
+      if (snap.exists()) setPrayerData(snap.data() as DayPrayers);
+    });
+
     // Resolve main loading immediately — individual sections handle their own loading
     setLoading(false);
 
-    return () => { medUnsub(); nutUnsub(); finUnsub(); accUnsub(); };
+    return () => { medUnsub(); nutUnsub(); finUnsub(); accUnsub(); prayUnsub(); };
   }, [userId, dashDate]);
+
+  // Update Med Checks state for mission logic
+  useEffect(() => {
+    const medUnsub = onSnapshot(doc(db, `users/${userId}/medcheck`, todayStr), (snap) => {
+      if (snap.exists()) setMedChecks(snap.data());
+    });
+    return () => medUnsub();
+  }, [userId, todayStr]);
+
+  // Main Active Mission Calculation
+  useEffect(() => {
+    if (!isToday) {
+      setActiveMission(null);
+      return;
+    }
+
+    const calculateMission = () => {
+      const now = new Date();
+      
+      // 1. Check Next Prayer
+      const prayerTimes = new PrayerTimes(CAIRO_COORDS, now, PRAYER_PARAMS);
+      const nextP = prayerTimes.nextPrayer();
+      let prayerMission = null;
+      if (nextP && nextP !== 'none') {
+        const pTime = prayerTimes.timeForPrayer(nextP);
+        if (pTime) {
+          const diffMs = pTime.getTime() - now.getTime();
+          const diffMins = Math.floor(diffMs / 60000);
+          
+          const namesAr: any = { fajr: 'الفجر', dhuhr: 'الظُّهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
+          const namesEn: any = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
+          
+          prayerMission = {
+            type: 'PRAYER' as const,
+            labelAr: `صلاة ${namesAr[nextP]}`,
+            labelEn: `Next: ${namesEn[nextP]}`,
+            subLabelAr: `بعد ${diffMins} دقيقة`,
+            subLabelEn: `in ${diffMins} minutes`,
+            time: pTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
+            icon: Moon,
+            color: 'text-amber-400',
+            action: () => setMode('PRAYER')
+          };
+        }
+      }
+
+      // 2. Check Next Med (Closest in past or near future)
+      let medMission = null;
+      let missionMeds = [];
+      MEDICINE_SCHEDULE.forEach(med => {
+        const isScheduled = med.frequency === 'daily' || (med.weekDays && med.weekDays.includes(now.getDay()));
+        if (isScheduled) {
+          med.doses.forEach(dose => {
+            const key = `${med.id}_${dose.idx}`;
+            if (!medChecks[key]) {
+              missionMeds.push({ ...med, ...dose, key });
+            }
+          });
+        }
+      });
+      missionMeds.sort((a, b) => a.time.localeCompare(b.time));
+      if (missionMeds.length > 0) {
+        const nextMed = missionMeds[0];
+        medMission = {
+          type: 'MEDICAL' as const,
+          labelAr: nextMed.nameLine1,
+          labelEn: nextMed.nameLine2,
+          subLabelAr: `موعد الجرعة: ${nextMed.displayTime}`,
+          subLabelEn: `Due: ${nextMed.displayTime}`,
+          icon: Pill,
+          color: nextMed.colorText,
+          action: () => setMode('MEDICAL')
+        };
+      }
+
+      // 3. Check Quran Ward
+      let quranMission = null;
+      if (prayerData && !prayerData.quranWard?.completed) {
+        quranMission = {
+          type: 'QURAN' as const,
+          labelAr: 'الورد القرآني',
+          labelEn: 'Daily Quran Ward',
+          subLabelAr: 'ما زلت بانتظار إتمام ورد اليوم',
+          subLabelEn: 'Awaits completion (15 min)',
+          icon: Zap,
+          color: 'text-primary',
+          action: () => setMode('PRAYER')
+        };
+      }
+
+      // 4. Decision logic: Priority: 
+      // A. Next Prayer if within 30 mins
+      // B. Meds if it's the next task
+      // C. Quran if meds are clear
+      if (prayerMission && prayerMission.subLabelEn.includes('in') && parseInt(prayerMission.subLabelEn.match(/\d+/)[0]) < 30) {
+        setActiveMission(prayerMission);
+      } else if (medMission) {
+        setActiveMission(medMission);
+      } else if (quranMission) {
+        setActiveMission(quranMission);
+      } else if (prayerMission) {
+        setActiveMission(prayerMission);
+      } else {
+        setActiveMission({
+          type: 'NONE',
+          labelAr: 'إنجاز رائع!',
+          labelEn: 'All Clear!',
+          subLabelAr: 'أكملت جميع مهامك الحالية بنجاح',
+          subLabelEn: 'You are ahead of schedule.',
+          icon: CheckCircle2,
+          color: 'text-emerald-400'
+        });
+      }
+    };
+
+    calculateMission();
+    const interval = setInterval(calculateMission, 60000); // Re-calculate every min
+    return () => clearInterval(interval);
+  }, [isToday, medChecks, prayerData, isArabic]);
 
 
   // Derived stats
@@ -778,152 +933,156 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
   return (
     <div className="space-y-6 pb-32" dir={isArabic ? 'rtl' : 'ltr'}>
 
-      {/* ── HERO HEADER ─────────────────────────────────────── */}
-      <header className="relative bg-surface-container rounded-3xl overflow-hidden border border-outline-variant/20 shadow-2xl">
-        {/* Background glow */}
+      {/* ── MISSION CONTROL HEADER (DASHBOARD REDESIGN v1) ────────────────── */}
+      <header className="relative bg-surface-container rounded-[2.5rem] overflow-hidden border border-outline-variant/30 shadow-2xl transition-all">
+        {/* Dynamic Background Glow based on Mission */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/8 rounded-full blur-[120px]" />
-          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px]" />
+          <div className={cn(
+            "absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] transition-all duration-1000",
+            activeMission?.type === 'PRAYER' ? "bg-amber-400/10" :
+            activeMission?.type === 'MEDICAL' ? "bg-primary/10" :
+            activeMission?.type === 'QURAN' ? "bg-indigo-500/10" : "bg-emerald-500/10"
+          )} />
         </div>
 
-        <div className="relative z-10 p-8">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div className="relative z-10 p-10 lg:p-14">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
+            
+            {/* Left: Active Mission Card */}
+            <div className="flex-1 w-full">
+              <div className="flex items-center gap-6 mb-12">
+                <div className="flex bg-surface-container-high rounded-full p-1.5 border border-outline-variant/20 shadow-inner">
+                  <button onClick={() => setViewMode('DAILY')} className={cn("px-6 py-2.5 rounded-full text-[10px] font-black tracking-widest uppercase transition-all", viewMode === 'DAILY' ? "bg-primary text-surface shadow-xl" : "text-on-surface-variant hover:text-primary")}>{isArabic ? 'اليومي' : 'DAILY'}</button>
+                  <button onClick={() => setViewMode('WEEKLY')} className={cn("px-6 py-2.5 rounded-full text-[10px] font-black tracking-widest uppercase transition-all", viewMode === 'WEEKLY' ? "bg-primary text-surface shadow-xl" : "text-on-surface-variant hover:text-primary")}>{isArabic ? 'الأسبوعي' : 'WEEKLY'}</button>
+                </div>
+                <div className="h-4 w-[1px] bg-outline-variant/30" />
+                <DateNavigator selectedDate={dashDate} setSelectedDate={setDashDate} isArabic={isArabic} todayStr={todayStr} />
+              </div>
 
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-4 w-full">
-              <DateNavigator selectedDate={dashDate} setSelectedDate={setDashDate} isArabic={isArabic} todayStr={todayStr} />
-              
-              <div className="flex flex-col items-end gap-3 shrink-0">
-                <div className="flex bg-surface-container-high rounded-2xl p-1 border border-outline-variant/10 shadow-inner">
-                  <button
-                    onClick={() => setViewMode('DAILY')}
-                    className={cn(
-                      "px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all",
-                      viewMode === 'DAILY' ? "bg-primary text-surface shadow-lg" : "text-on-surface-variant hover:text-primary"
-                    )}
+              {viewMode === 'DAILY' && activeMission && (
+                <motion.div 
+                  key={activeMission.labelEn}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex flex-col lg:flex-row items-center gap-10"
+                >
+                  <div className={cn(
+                    "w-32 h-32 lg:w-40 lg:h-40 rounded-[2.5rem] flex items-center justify-center shadow-2xl relative",
+                    "bg-surface-container-highest border-2 border-outline-variant/20"
+                  )}>
+                    <activeMission.icon size={56} className={activeMission.color} />
+                    <div className={cn("absolute -bottom-2 -right-2 px-4 py-1.5 rounded-full bg-surface border border-outline-variant shadow-lg text-[9px] font-black uppercase tracking-widest", activeMission.color)}>
+                      {activeMission.type}
+                    </div>
+                  </div>
+
+                  <div className="text-center lg:text-left flex-1">
+                    <h1 className="text-5xl lg:text-6xl font-headline font-black tracking-tighter mb-4 leading-tight">
+                      {isArabic ? activeMission.labelAr : activeMission.labelEn}
+                    </h1>
+                    <p className="text-lg lg:text-xl font-bold text-on-surface-variant/60 flex items-center justify-center lg:justify-start gap-4">
+                      {isArabic ? activeMission.subLabelAr : activeMission.subLabelEn}
+                      {activeMission.time && <span className="px-3 py-1 rounded-lg bg-surface-container-highest text-sm font-mono text-primary border border-outline-variant/10">{activeMission.time}</span>}
+                    </p>
+                    
+                    <div className="mt-10 flex flex-wrap gap-4 justify-center lg:justify-start">
+                      {activeMission.action && (
+                        <button
+                          onClick={activeMission.action}
+                          className="px-10 py-5 rounded-[1.5rem] bg-primary text-surface font-black text-xs tracking-[0.3em] uppercase shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-4"
+                        >
+                          <Zap size={18} />
+                          {isArabic ? 'فتح المهمة' : 'OPEN_MISSION'}
+                        </button>
+                      )}
+                      {activeMission.type === 'NONE' && (
+                        <button
+                          onClick={() => setMode('PRAYER')}
+                          className="px-8 py-5 rounded-[1.5rem] bg-surface-container-highest text-on-surface font-black text-xs tracking-[0.3em] uppercase border border-outline-variant/20 hover:bg-surface-bright transition-all"
+                        >
+                          {isArabic ? 'سجل الصلاة' : 'PRAYER_LOG'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {viewMode === 'WEEKLY' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Weekly widgets remain but styled for new header */}
+                  {weeklyLoading ? (
+                    <div className="col-span-full py-20 flex justify-center"><Loader2 className="animate-spin text-primary" size={40} /></div>
+                  ) : (
+                    <>
+                      <div className="bg-primary/5 border border-primary/10 rounded-[2rem] p-8">
+                        <h4 className="text-[10px] font-black tracking-[0.3em] text-primary uppercase mb-6">{isArabic ? 'الالتزام بالعلاج' : 'ADHERENCE'}</h4>
+                        <div className="text-5xl font-black font-headline mb-2">{weeklyMed.total > 0 ? Math.round((weeklyMed.checked / weeklyMed.total) * 100) : 0}%</div>
+                        <div className="text-xs font-bold opacity-30">{weeklyMed.checked}/{weeklyMed.total} {isArabic ? 'جرعة' : 'doses'}</div>
+                      </div>
+                      <div className="bg-amber-400/5 border border-amber-400/10 rounded-[2rem] p-8">
+                        <h4 className="text-[10px] font-black tracking-[0.3em] text-amber-500 uppercase mb-6">{isArabic ? 'متوسط السعرات' : 'AVG_CALORIES'}</h4>
+                        <div className="text-5xl font-black font-headline mb-2">{Math.round(weeklyNut.calories / 7)}</div>
+                        <div className="text-xs font-bold opacity-30">kcal / day</div>
+                      </div>
+                      <div className="bg-emerald-400/5 border border-emerald-400/10 rounded-[2rem] p-8">
+                        <h4 className="text-[10px] font-black tracking-[0.3em] text-emerald-500 uppercase mb-6">{isArabic ? 'صافي التدفق' : 'NET_FLOW'}</h4>
+                        <div className={cn("text-5xl font-black font-headline mb-2", (weeklyFin.income - weeklyFin.expense) >= 0 ? "text-emerald-500" : "text-red-400")}>
+                          {(weeklyFin.income - weeklyFin.expense).toLocaleString()}
+                        </div>
+                        <div className="text-xs font-bold opacity-30">EGP (net)</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Day Score & Privacy Wealth */}
+            <div className="lg:w-96 w-full flex flex-col gap-6">
+               <div className="p-8 rounded-[2rem] bg-surface-variant/10 border border-outline-variant/10 group flex items-center justify-between">
+                <div className="flex flex-col">
+                  <h4 className="text-[10px] font-black tracking-[0.3em] text-primary uppercase mb-3">{isArabic ? 'الثروة الكلية' : 'TOTAL_WEALTH'}</h4>
+                  <div 
+                    className="cursor-pointer group/wealth"
+                    onClick={() => setIsWealthHidden(!isWealthHidden)}
                   >
-                    {isArabic ? 'اليومي' : 'DAILY'}
-                  </button>
-                  <button
-                    onClick={() => setViewMode('WEEKLY')}
-                    className={cn(
-                      "px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all",
-                      viewMode === 'WEEKLY' ? "bg-primary text-surface shadow-lg" : "text-on-surface-variant hover:text-primary"
-                    )}
-                  >
-                    {isArabic ? 'الأسبوعي' : 'WEEKLY'}
-                  </button>
+                    <h3 className="text-3xl font-headline font-black text-on-surface flex items-baseline gap-2">
+                      {isWealthHidden ? '••••••' : totalWealth.toLocaleString()}
+                      <span className="text-[10px] font-bold opacity-30 tracking-tight">EGP</span>
+                    </h3>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsWealthHidden(!isWealthHidden)}
+                  className="w-12 h-12 rounded-2xl bg-surface-container-highest/50 flex items-center justify-center text-on-surface-variant hover:text-primary transition-all shadow-xl"
+                >
+                  {isWealthHidden ? <Eye size={20} /> : <EyeOff size={20} />}
+                </button>
+              </div>
+
+              <div className="p-8 rounded-[2rem] bg-gradient-to-br from-indigo-500/10 to-emerald-500/10 border border-outline-variant/10 flex items-center gap-8">
+                <div className="relative w-24 h-24">
+                  <svg className="w-full h-full -rotate-90">
+                    <circle cx="48" cy="48" r="40" fill="transparent" stroke="currentColor" strokeWidth="8" className="text-white/5" />
+                    <motion.circle
+                      initial={{ strokeDashoffset: 251.2 }}
+                      animate={{ strokeDashoffset: 251.2 * (1 - dayScore / 100) }}
+                      cx="48" cy="48" r="40" fill="transparent" stroke="currentColor" strokeWidth="8"
+                      strokeDasharray="251.2" strokeLinecap="round" className="text-primary"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center font-headline font-black text-2xl">{dayScore}</div>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black tracking-[0.3em] text-on-surface-variant/60 uppercase mb-2">{isArabic ? 'كفاءة اليوم' : 'DAY_SCORE'}</h4>
+                  <p className="text-lg font-black leading-tight text-on-surface">
+                    {dayScore >= 80 ? (isArabic ? 'أداء مثالي' : 'PERFECT') : (isArabic ? 'متزن' : 'RECOVERY')}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {viewMode === 'WEEKLY' ? (
-              /* Weekly Insights View */
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8 w-full">
-                {weeklyLoading ? (
-                  <div className="col-span-full py-10 flex justify-center"><Loader2 className="animate-spin text-primary" size={32} /></div>
-                ) : (
-                  <>
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                      className="bg-primary/5 border border-primary/10 rounded-3xl p-6 relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 p-4 opacity-10"><Pill size={24} /></div>
-                      <h4 className="text-[9px] font-black tracking-[0.3em] text-primary uppercase mb-4">{isArabic ? 'الالتزام بالعلاج' : 'ADHERENCE'}</h4>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-black font-headline">{weeklyMed.total > 0 ? Math.round((weeklyMed.checked / weeklyMed.total) * 100) : 0}%</span>
-                        <span className="text-[10px] font-bold opacity-30 uppercase">{weeklyMed.checked}/{weeklyMed.total}</span>
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-                      className="bg-amber-400/5 border border-amber-400/10 rounded-3xl p-6 relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 p-4 opacity-10"><Salad size={24} /></div>
-                      <h4 className="text-[9px] font-black tracking-[0.3em] text-amber-500 uppercase mb-4">{isArabic ? 'متوسط السعرات' : 'AVG_CALORIES'}</h4>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-black font-headline">{Math.round(weeklyNut.calories / 7)}</span>
-                        <span className="text-[10px] font-bold opacity-30 uppercase">kcal/day</span>
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-                      className="bg-emerald-400/5 border border-emerald-400/10 rounded-3xl p-6 relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 p-4 opacity-10"><Wallet size={24} /></div>
-                      <h4 className="text-[9px] font-black tracking-[0.3em] text-emerald-500 uppercase mb-4">{isArabic ? 'صافي الميزانية' : 'NET_FLOW'}</h4>
-                      <div className="flex items-baseline gap-2">
-                        <span className={cn("text-4xl font-black font-headline", (weeklyFin.income - weeklyFin.expense) >= 0 ? "text-primary" : "text-red-400")}>
-                          {(weeklyFin.income - weeklyFin.expense).toLocaleString()}
-                        </span>
-                        <span className="text-[10px] font-bold opacity-30 uppercase">EGP</span>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </div>
-            ) : (
-              /* Right: Day Score Meter (Existing) */
-              <div className="flex items-center gap-6 p-6 rounded-3xl bg-surface-variant/10 border border-outline-variant/10">
-                <div className="relative w-28 h-28 flex-shrink-0">
-                  <svg className="w-full h-full -rotate-90">
-                    <circle cx="56" cy="56" r="48" fill="transparent" stroke="currentColor" strokeWidth="6" className="text-surface-container-highest" />
-                    <motion.circle
-                      key={dashDate}
-                      initial={{ strokeDashoffset: 301.6 }}
-                      animate={{ strokeDashoffset: 301.6 * (1 - dayScore / 100) }}
-                      transition={{ duration: 1.5, ease: 'easeOut' }}
-                      cx="56" cy="56" r="48" fill="transparent"
-                      stroke="url(#scoreGrad)" strokeWidth="6"
-                      strokeDasharray="301.6" strokeLinecap="round"
-                    />
-                    <defs>
-                      <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#6366f1" />
-                        <stop offset="100%" stopColor="#10b981" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-headline font-black text-on-surface">{dayScore}</span>
-                    <span className="text-[8px] font-bold uppercase tracking-widest opacity-40">/ 100</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black tracking-[0.3em] uppercase text-primary">
-                    {isArabic ? 'نقاط اليوم' : 'DAY_SCORE'}
-                  </p>
-                  <p className="text-sm font-bold text-on-surface/70 max-w-[140px]">
-                    {dayScore >= 80
-                      ? (isArabic ? 'يوم ممتاز! 🏆' : 'Excellent day! 🏆')
-                      : dayScore >= 50
-                        ? (isArabic ? 'يوم جيد 💪' : 'Good day 💪')
-                        : (isArabic ? 'يمكنك أفضل 🎯' : 'You can do better 🎯')}
-                  </p>
-                  <div className="space-y-1 pt-1">
-                    {[
-                      { label: isArabic ? 'طبي' : 'Medical', val: medProgress, color: 'bg-primary' },
-                      { label: isArabic ? 'تغذية' : 'Nutrition', val: calProgress, color: 'bg-amber-400' },
-                      { label: isArabic ? 'مالية' : 'Finance', val: financialEntries.length > 0 ? 100 : 0, color: 'bg-emerald-400' },
-                    ].map(item => (
-                      <div key={item.label} className="flex items-center gap-2">
-                        <span className="text-[9px] w-14 font-bold opacity-40 uppercase">{item.label}</span>
-                        <div className="flex-1 h-1 bg-surface-container-high rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${item.val}%` }}
-                            transition={{ duration: 1, ease: 'easeOut' }}
-                            className={`h-full ${item.color}`}
-                          />
-                        </div>
-                        <span className="text-[9px] font-mono opacity-40 w-8 text-right">{item.val}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </header>
