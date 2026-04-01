@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Pill, Plus, Search, Menu, X, Bell, BellRing, LayoutDashboard, Stethoscope, Landmark, Utensils, Trash2, Loader2,
-  Languages, Droplets, Eye, EyeOff, Sparkles, Clock, Flame, Zap, Activity, PlusCircle, ChevronDown, Edit2,
+  Languages, Droplets, Eye, EyeOff, Sparkles, Clock, Flame, Zap, Activity, PlusCircle, ChevronDown, Edit2, Scale,
   Heart, Wallet, ShieldAlert, CreditCard, ChevronLeft, ChevronRight, ArrowRight, ArrowLeftRight,
   User as UserIcon, LogOut, CheckCircle2, Salad, Smartphone, Globe, Cloud, Moon, Sun, ShieldCheck,
   BarChart3, Settings, Info, HelpCircle, Apple, Pizza, Coffee
@@ -213,6 +213,7 @@ interface NutritionEntry {
   protein: number;
   carbs: number;
   fat: number;
+  amountGrams?: number;
   createdAt: Timestamp | null;
 }
 
@@ -1434,7 +1435,10 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
                             <MealIcon size={16} />
                           </div>
                           <div className="overflow-hidden">
-                            <p className="text-sm font-bold truncate">{n.name}</p>
+                            <p className="text-sm font-bold truncate flex items-center gap-2">
+                              {n.name}
+                              {n.amountGrams && n.amountGrams > 0 && <span className="opacity-40 text-[9px] font-mono">({n.amountGrams}g)</span>}
+                            </p>
                             <div className="flex items-center gap-2 text-[8px] font-mono opacity-30 uppercase tracking-wider mt-0.5">
                               <span>{n.protein}P</span>
                               <span>·</span>
@@ -2671,8 +2675,10 @@ const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
   const [entries, setEntries] = useState<NutritionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '' });
+  const [form, setForm] = useState({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '', amountGrams: '' });
+  const formRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     // Start and end of the SELECTED date
@@ -2698,16 +2704,24 @@ const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
     if (!form.name) return;
     setSubmitting(true);
     try {
-      await addDoc(collection(db, `users/${userId}/nutrition`), {
+      const nutritionData = {
         name: form.name,
         meal: form.meal,
         calories: parseFloat(form.calories) || 0,
         protein: parseFloat(form.protein) || 0,
         carbs: parseFloat(form.carbs) || 0,
         fat: parseFloat(form.fat) || 0,
-        createdAt: nutriDate === getSystemToday() ? serverTimestamp() : new Date(nutriDate + 'T' + new Date().toTimeString().split(' ')[0]),
-      });
-      setForm({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '' });
+        amountGrams: parseFloat(form.amountGrams) || 0,
+        ...(editingId ? {} : { createdAt: nutriDate === getSystemToday() ? serverTimestamp() : new Date(nutriDate + 'T' + new Date().toTimeString().split(' ')[0]) })
+      };
+
+      if (editingId) {
+        await setDoc(doc(db, `users/${userId}/nutrition`, editingId), nutritionData, { merge: true });
+        setEditingId(null);
+      } else {
+        await addDoc(collection(db, `users/${userId}/nutrition`), nutritionData);
+      }
+      setForm({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '', amountGrams: '' });
     } catch (err) {
       console.error(err);
     }
@@ -2839,12 +2853,22 @@ const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
           }
         `}</style>
         <aside className={cn("xl:col-span-4 space-y-8", isArabic ? "xl:order-1" : "xl:order-2")}>
-          <section className="bg-surface-container-high rounded-3xl p-8 border border-outline-variant/30 space-y-8 shadow-2xl">
-            <div className="flex items-center gap-3">
-              <Plus size={16} className="text-primary" />
-              <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase">
-                {isArabic ? 'إدخال سريع' : 'QUICK_ENTRY_SYSTEM'}
-              </h3>
+          <section ref={formRef} className="bg-surface-container-high rounded-3xl p-8 border border-outline-variant/30 space-y-8 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Plus size={16} className="text-primary" />
+                <h3 className="text-[10px] font-bold tracking-[0.2em] uppercase">
+                  {editingId ? (isArabic ? 'تعديل الوجبة' : 'REFINING_MEAL') : (isArabic ? 'إدخال سريع' : 'QUICK_ENTRY_SYSTEM')}
+                </h3>
+              </div>
+              {editingId && (
+                <button 
+                  onClick={() => { setEditingId(null); setForm({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '', amountGrams: '' }); }}
+                  className="text-[9px] font-black text-red-400 uppercase tracking-widest hover:underline"
+                >
+                  {isArabic ? 'إلغاء التعديل' : 'CANCEL_EDIT'}
+                </button>
+              )}
             </div>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
@@ -2878,14 +2902,15 @@ const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
               </div>
               <div className="grid grid-cols-2 gap-6">
                 {[
+                  { label: isArabic ? 'الكمية (ج)' : 'Amount_g', key: 'amountGrams', req: true, icon: Scale, color: 'text-indigo-400' },
                   { label: isArabic ? 'طاقة (سعرة)' : 'Energy_kcal', key: 'calories', req: true, icon: Flame, color: 'text-orange-400' },
                   { label: isArabic ? 'بروتين (ج)' : 'Protein_g', key: 'protein', icon: Zap, color: 'text-blue-400' },
                   { label: isArabic ? 'كارب (ج)' : 'Carbs_g', key: 'carbs', icon: Activity, color: 'text-emerald-400' },
                   { label: isArabic ? 'دهون (ج)' : 'Fat_g', key: 'fat', icon: Droplets, color: 'text-amber-400' },
                 ].map(f => (
-                  <div key={f.key} className="space-y-3 p-4 bg-surface-container-high/50 rounded-2xl border border-outline-variant/10 shadow-inner">
+                  <div key={f.key} className={cn("space-y-3 p-4 bg-surface-container-high/50 rounded-2xl border border-outline-variant/10 shadow-inner", f.key === 'amountGrams' && "col-span-2")}>
                     <div className="flex items-center gap-2 px-1">
-                      <f.icon size={12} className={f.color} />
+                      {f.icon && <f.icon size={12} className={f.color} />}
                       <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em]">{f.label}</label>
                     </div>
                     <input
@@ -2966,25 +2991,52 @@ const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
                       className="overflow-hidden space-y-3 pr-4"
                     >
                       {group.entries.map((entry) => (
-                        <div key={entry.id} className="p-5 flex items-center justify-between bg-surface-container-low rounded-2xl border border-outline-variant/10 hover:border-primary/30 transition-all group">
+                        <div 
+                          key={entry.id} 
+                          onClick={(e) => {
+                            setEditingId(entry.id);
+                            setForm({
+                              name: entry.name,
+                              meal: entry.meal,
+                              calories: entry.calories.toString(),
+                              protein: entry.protein.toString(),
+                              carbs: entry.carbs.toString(),
+                              fat: entry.fat.toString(),
+                              amountGrams: entry.amountGrams?.toString() || ''
+                            });
+                            // Bring the form into view with minimum scroll needed
+                            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                          }}
+                          className="p-5 flex items-center justify-between bg-surface-container-low rounded-2xl border border-outline-variant/10 hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer"
+                        >
                           <div className="flex-1">
-                            <div className="text-base font-bold">{entry.name}</div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-base font-bold">{entry.name}</div>
+                              {entry.amountGrams && entry.amountGrams > 0 && (
+                                <span className="px-2 py-0.5 rounded-lg bg-primary/5 text-primary text-[10px] font-black">{entry.amountGrams}g</span>
+                              )}
+                            </div>
                             <div className="text-[10px] text-on-surface-variant font-mono mt-1 flex gap-3 opacity-60">
                               <span>{entry.protein}p</span>
                               <span>{entry.carbs}c</span>
                               <span>{entry.fat}f</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-4">
                             <div className="text-right">
                               <div className="text-lg font-black text-primary">{entry.calories} <small className="text-[10px] font-medium opacity-40">kcal</small></div>
                             </div>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
-                              className="w-10 h-10 rounded-xl bg-red-400/10 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity active:scale-95"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(entry.id);
+                                }}
+                                className="w-9 h-9 rounded-xl bg-red-400/10 text-red-400 flex items-center justify-center hover:bg-red-400 hover:text-white transition-all active:scale-90"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
