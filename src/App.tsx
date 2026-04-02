@@ -595,9 +595,9 @@ const AuthView = ({ onLogin, isLoading, error, isArabic }: { onLogin: () => void
 
 // --- View: Dashboard ---
 
-const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDate, viewMode, setViewMode, isWealthHidden, setIsWealthHidden }: { 
-  userId: string, 
-  isArabic: boolean, 
+const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDate, viewMode, setViewMode, isWealthHidden, setIsWealthHidden }: {
+  userId: string,
+  isArabic: boolean,
   setMode: (m: AppMode) => void,
   selectedDate: string,
   setSelectedDate: (d: string) => void,
@@ -607,7 +607,7 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
   setIsWealthHidden: (v: boolean) => void
 }) => {
   const todayStr = getSystemToday();
-  const dashDate = selectedDate; 
+  const dashDate = selectedDate;
   const setDashDate = setSelectedDate;
 
   const [medData, setMedData] = useState<{ checked: number, total: number }>({ checked: 0, total: 0 });
@@ -647,11 +647,11 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
     : hour < 12 ? 'Good Morning ☀️' : hour < 17 ? 'Good Afternoon 🌤️' : 'Good Evening 🌙';
 
   const isToday = dashDate === todayStr;
-  
+
   // Weekly aggregation logic
   useEffect(() => {
     if (viewMode !== 'WEEKLY') return;
-    
+
     setWeeklyLoading(true);
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(dashDate + 'T12:00:00');
@@ -798,7 +798,7 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
 
     const calculateMission = () => {
       const now = new Date();
-      
+
       // 1. Check Next Prayer
       const prayerTimes = new PrayerTimes(CAIRO_COORDS, now, PRAYER_PARAMS);
       const nextP = prayerTimes.nextPrayer();
@@ -808,10 +808,10 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
         if (pTime) {
           const diffMs = pTime.getTime() - now.getTime();
           const diffMins = Math.floor(diffMs / 60000);
-          
+
           const namesAr: any = { fajr: 'الفجر', dhuhr: 'الظُّهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
           const namesEn: any = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha' };
-          
+
           prayerMission = {
             type: 'PRAYER' as const,
             labelAr: `صلاة ${namesAr[nextP]}`,
@@ -941,14 +941,14 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
           <div className={cn(
             "absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] transition-all duration-1000",
             activeMission?.type === 'PRAYER' ? "bg-amber-400/10" :
-            activeMission?.type === 'MEDICAL' ? "bg-primary/10" :
-            activeMission?.type === 'QURAN' ? "bg-indigo-500/10" : "bg-emerald-500/10"
+              activeMission?.type === 'MEDICAL' ? "bg-primary/10" :
+                activeMission?.type === 'QURAN' ? "bg-indigo-500/10" : "bg-emerald-500/10"
           )} />
         </div>
 
         <div className="relative z-10 p-10 lg:p-14">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
-            
+
             {/* Left: Active Mission Card */}
             <div className="flex-1 w-full">
               <div className="flex items-center gap-6 mb-12">
@@ -961,7 +961,7 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
               </div>
 
               {viewMode === 'DAILY' && activeMission && (
-                <motion.div 
+                <motion.div
                   key={activeMission.labelEn}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -985,7 +985,7 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
                       {isArabic ? activeMission.subLabelAr : activeMission.subLabelEn}
                       {activeMission.time && <span className="px-3 py-1 rounded-lg bg-surface-container-highest text-sm font-mono text-primary border border-outline-variant/10">{activeMission.time}</span>}
                     </p>
-                    
+
                     <div className="mt-10 flex flex-wrap gap-4 justify-center lg:justify-start">
                       {activeMission.action && (
                         <button
@@ -1041,10 +1041,10 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
 
             {/* Right: Day Score & Privacy Wealth */}
             <div className="lg:w-96 w-full flex flex-col gap-6">
-               <div className="p-8 rounded-[2rem] bg-surface-variant/10 border border-outline-variant/10 group flex items-center justify-between">
+              <div className="p-8 rounded-[2rem] bg-surface-variant/10 border border-outline-variant/10 group flex items-center justify-between">
                 <div className="flex flex-col">
                   <h4 className="text-[10px] font-black tracking-[0.3em] text-primary uppercase mb-3">{isArabic ? 'الثروة الكلية' : 'TOTAL_WEALTH'}</h4>
-                  <div 
+                  <div
                     className="cursor-pointer group/wealth"
                     onClick={() => setIsWealthHidden(!isWealthHidden)}
                   >
@@ -1054,7 +1054,7 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
                     </h3>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsWealthHidden(!isWealthHidden)}
                   className="w-12 h-12 rounded-2xl bg-surface-container-highest/50 flex items-center justify-center text-on-surface-variant hover:text-primary transition-all shadow-xl"
                 >
@@ -1148,7 +1148,7 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
                   <span className="text-[9px] font-black tracking-[0.3em] uppercase text-on-surface-variant/50">{stat.label}</span>
                   <div className="flex items-center gap-2">
                     {(stat as any).isWealth && (
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); setIsWealthHidden(!isWealthHidden); }}
                         className="w-6 h-6 rounded-lg bg-surface-container-highest/50 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
                       >
@@ -1371,16 +1371,16 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
                         <div className="flex items-center gap-3 overflow-hidden">
                           <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
                             isExpected ? 'bg-amber-400/10 text-amber-400' :
-                            isOutflow ? 'bg-red-400/10 text-red-400' :
-                            'bg-emerald-400/10 text-emerald-400'
+                              isOutflow ? 'bg-red-400/10 text-red-400' :
+                                'bg-emerald-400/10 text-emerald-400'
                           )}>
                             {isExpected ? <Clock size={16} /> : isOutflow ? <ShieldAlert size={16} /> : <ArrowLeftRight size={22} />}
                           </div>
                           <div className="overflow-hidden">
                             <p className="text-sm font-bold truncate">{entry.source}</p>
                             <p className="text-[8px] uppercase tracking-widest opacity-30 font-black">
-                              {isArabic 
-                                ? (isExpected ? 'مُعلّق / متوقع' : isOutflow ? 'مصروف / سداد' : 'دخل / توريد') 
+                              {isArabic
+                                ? (isExpected ? 'مُعلّق / متوقع' : isOutflow ? 'مصروف / سداد' : 'دخل / توريد')
                                 : (isExpected ? 'PENDING' : entry.type.toUpperCase())}
                             </p>
                           </div>
@@ -1468,8 +1468,8 @@ const DashboardView = ({ userId, isArabic, setMode, selectedDate, setSelectedDat
 
 
 
-const MedicalView = ({ userId, isArabic, selectedDate, setSelectedDate }: { 
-  userId: string, 
+const MedicalView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
+  userId: string,
   isArabic: boolean,
   selectedDate: string,
   setSelectedDate: (d: string) => void
@@ -1651,7 +1651,7 @@ const MedicalView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
 
         {/* Sidebar: Progress & Summary (Second in source = Left in RTL) */}
         <div className="xl:col-span-4 space-y-6 order-2">
-          
+
           <div className="bg-surface-container rounded-3xl p-6 border border-outline-variant/10 mb-6">
             <DateNavigator selectedDate={selectedDate} setSelectedDate={setSelectedDate} isArabic={isArabic} todayStr={todayStr} />
           </div>
@@ -1719,8 +1719,8 @@ const MedicalView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
 
 // --- View: Financial ---
 
-const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWealthHidden }: { 
-  userId: string, 
+const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWealthHidden }: {
+  userId: string,
   isArabic: boolean,
   selectedDate: string,
   isWealthHidden: boolean,
@@ -1766,7 +1766,7 @@ const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWe
       // --- Auto-Settle Pending Transactions ---
       const todayStr = getSystemToday();
       const pendingToSettle = fetchedEntries.filter(e => e.status === 'PENDING' && e.date <= todayStr);
-      
+
       if (pendingToSettle.length > 0) {
         try {
           // Process sequentially to safely resolve balances
@@ -1775,10 +1775,10 @@ const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWe
               const accRef = doc(db, `users/${userId}/accounts`, pending.accountId);
               const accDoc = await trans.get(accRef);
               if (!accDoc.exists()) return;
-              
+
               const isDeduction = ['Expense', 'Shopping', 'Bills', 'Lent', 'Repaid'].includes(pending.type);
               const diff = isDeduction ? -pending.amount : pending.amount;
-              
+
               trans.update(accRef, { balance: (accDoc.data().balance || 0) + diff });
               trans.update(doc(db, `users/${userId}/financial`, pending.id), { status: 'COMPLETED', lastSettled: serverTimestamp() });
             });
@@ -1980,7 +1980,7 @@ const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWe
                     <span className="text-[10px] font-medium ml-2 opacity-30">EGP</span>
                   </h3>
                   <div className="flex items-center gap-2">
-                    <button 
+                    <button
                       onClick={(e) => { e.stopPropagation(); setIsWealthHidden(!isWealthHidden); }}
                       className="w-8 h-8 rounded-full bg-surface-container-highest/50 flex items-center justify-center text-on-surface-variant hover:text-primary transition-all opacity-0 group-hover:opacity-100"
                     >
@@ -2196,8 +2196,8 @@ const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWe
                         <div className={cn(
                           "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-transform group-hover:scale-105",
                           isExpected ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
-                          isOutflow ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                          'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            isOutflow ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                              'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         )}>
                           {isExpected ? <Clock size={22} /> : isOutflow ? <ShieldAlert size={22} /> : <ArrowLeftRight size={22} />}
                         </div>
@@ -2219,18 +2219,18 @@ const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWe
                             {isWealthHidden ? '••••••' : `${isExpected ? '' : isOutflow ? '-' : '+'}${entry.amount.toLocaleString()} ${entry.currency}`}
                           </div>
                           <p className="text-[8px] font-bold text-on-surface-variant/30 uppercase tracking-[0.3em] mt-0.5">
-                            {isArabic 
-                              ? (entry.type === 'Expected' ? 'مُعلّق / متوقع' : 
-                                 entry.type === 'Expense' ? 'مصروف عام' : 
-                                 entry.type === 'Shopping' ? 'تسوق' : 
-                                 entry.type === 'Bills' ? 'فواتير واشتراكات' : 
-                                 entry.type === 'Salary' ? 'راتب أساسي' : 
-                                 entry.type === 'Freelance' ? 'عمل حر' : 
-                                 entry.type === 'Gifts' ? 'هدية / مكافأة' : 
-                                 entry.type === 'Lent' ? 'سلفة صاردة' : 
-                                 entry.type === 'Recovered' ? 'استرداد سلفة' : 
-                                 entry.type === 'Borrowed' ? 'سلفة واردة' : 
-                                 entry.type === 'Repaid' ? 'سداد دين' : 'أخرى')
+                            {isArabic
+                              ? (entry.type === 'Expected' ? 'مُعلّق / متوقع' :
+                                entry.type === 'Expense' ? 'مصروف عام' :
+                                  entry.type === 'Shopping' ? 'تسوق' :
+                                    entry.type === 'Bills' ? 'فواتير واشتراكات' :
+                                      entry.type === 'Salary' ? 'راتب أساسي' :
+                                        entry.type === 'Freelance' ? 'عمل حر' :
+                                          entry.type === 'Gifts' ? 'هدية / مكافأة' :
+                                            entry.type === 'Lent' ? 'سلفة صاردة' :
+                                              entry.type === 'Recovered' ? 'استرداد سلفة' :
+                                                entry.type === 'Borrowed' ? 'سلفة واردة' :
+                                                  entry.type === 'Repaid' ? 'سداد دين' : 'أخرى')
                               : (entry.type === 'Expected' ? 'PENDING' : entry.type.toUpperCase())}
                           </p>
                         </div>
@@ -2293,7 +2293,7 @@ const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWe
                   {isWealthHidden ? '••••••' : netWorth.toLocaleString('en-EG', { minimumFractionDigits: 2 })}
                   <span className="text-sm font-bold opacity-30 ml-3">EGP</span>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsWealthHidden(!isWealthHidden)}
                   className="w-12 h-12 rounded-2xl bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-primary transition-all hover:scale-105 active:scale-95 shadow-lg border border-outline-variant/10"
                 >
@@ -2339,12 +2339,12 @@ const FinancialView = ({ userId, isArabic, selectedDate, isWealthHidden, setIsWe
 
 // --- View: Prayer & Quran ---
 
-const QuranFocusOverlay = ({ 
-  isArabic, 
-  setIsQuranFocusActive, 
-  secondsLeft, 
-  setSecondsLeft, 
-  isPaused, 
+const QuranFocusOverlay = ({
+  isArabic,
+  setIsQuranFocusActive,
+  secondsLeft,
+  setSecondsLeft,
+  isPaused,
   setIsPaused,
   userId,
   selectedDate,
@@ -2384,7 +2384,7 @@ const QuranFocusOverlay = ({
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-8 text-white"
@@ -2398,7 +2398,7 @@ const QuranFocusOverlay = ({
         <div className="p-6 rounded-full bg-primary/10 text-primary mb-12 animate-pulse">
           <Moon size={64} />
         </div>
-        
+
         <h2 className="text-4xl font-headline font-black tracking-tighter mb-4">
           {isArabic ? 'وقت الورد القرآني' : 'QURAN_FOCUS_TIME'}
         </h2>
@@ -2415,10 +2415,10 @@ const QuranFocusOverlay = ({
             onClick={() => setIsPaused(!isPaused)}
             className="flex-1 py-6 rounded-3xl bg-white/10 hover:bg-white/20 border border-white/10 transition-all font-black text-xs tracking-widest uppercase flex items-center justify-center gap-3"
           >
-            {isPaused ? <PlusCircle size={20} /> : <div className="w-5 h-5 flex gap-1 justify-center"><div className="w-1.5 h-full bg-white rounded-full"/><div className="w-1.5 h-full bg-white rounded-full"/></div>}
+            {isPaused ? <PlusCircle size={20} /> : <div className="w-5 h-5 flex gap-1 justify-center"><div className="w-1.5 h-full bg-white rounded-full" /><div className="w-1.5 h-full bg-white rounded-full" /></div>}
             {isPaused ? (isArabic ? 'استمرار' : 'RESUME') : (isArabic ? 'إيقاف مؤقت' : 'PAUSE')}
           </button>
-          
+
           {secondsLeft === 0 && (
             <button
               onClick={handleComplete}
@@ -2429,7 +2429,7 @@ const QuranFocusOverlay = ({
             </button>
           )}
         </div>
-        
+
         <p className="mt-12 text-[10px] opacity-30 font-bold tracking-[0.2em] uppercase">
           {isArabic ? 'الخروج غير متاح حتى انتهاء الوقت' : 'NAVIGATION_LOCKED_UNTIL_FINISH'}
         </p>
@@ -2438,17 +2438,17 @@ const QuranFocusOverlay = ({
   );
 };
 
-const PrayerView = ({ 
-  userId, 
-  isArabic, 
-  selectedDate, 
+const PrayerView = ({
+  userId,
+  isArabic,
+  selectedDate,
   setSelectedDate,
-  isQuranFocusActive, 
-  setIsQuranFocusActive, 
-  quranSecondsLeft, 
-  setQuranSecondsLeft, 
-  isQuranPaused, 
-  setIsQuranPaused 
+  isQuranFocusActive,
+  setIsQuranFocusActive,
+  quranSecondsLeft,
+  setQuranSecondsLeft,
+  isQuranPaused,
+  setIsQuranPaused
 }: any) => {
   const [data, setData] = useState<DayPrayers | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2513,8 +2513,8 @@ const PrayerView = ({
           return (
             <div key={p.id} className={cn(
               "p-6 rounded-3xl border transition-all relative overflow-hidden group",
-              pData.completed 
-                ? "bg-emerald-500/5 border-emerald-500/20 shadow-lg shadow-emerald-500/5" 
+              pData.completed
+                ? "bg-emerald-500/5 border-emerald-500/20 shadow-lg shadow-emerald-500/5"
                 : "bg-surface-container border-outline-variant/20 shadow-xl"
             )}>
               <div className="flex items-center justify-between mb-6">
@@ -2527,7 +2527,7 @@ const PrayerView = ({
                   </div>
                   <span className="text-sm font-black tracking-widest uppercase">{isArabic ? p.labelAr : p.labelEn}</span>
                 </div>
-                <button 
+                <button
                   onClick={() => updatePrayer(p.id, { completed: !pData.completed })}
                   className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90",
@@ -2545,7 +2545,7 @@ const PrayerView = ({
                     <Smartphone size={14} className="opacity-40" />
                     <span className="text-[10px] font-bold uppercase tracking-widest">{isArabic ? 'في المسجد' : 'MASJID'}</span>
                   </div>
-                  <button 
+                  <button
                     onClick={() => updatePrayer(p.id, { inMasjid: !pData.inMasjid })}
                     className={cn(
                       "w-6 h-6 rounded-lg transition-all",
@@ -2638,18 +2638,18 @@ const PrayerView = ({
                 {isArabic ? 'ابدأ الورد (تركيز)' : 'START_FOCUS_WARD'}
               </button>
             )}
-            
+
             <button
-               onClick={async () => {
-                 const ref = doc(db, `users/${userId}/prayers`, selectedDate);
-                 await setDoc(ref, { quranWard: { ...data.quranWard, completed: !data.quranWard.completed } }, { merge: true });
-               }}
-               className={cn(
-                 "flex-1 md:flex-none px-12 py-6 rounded-3xl font-black text-xs tracking-[0.4em] uppercase transition-all flex items-center justify-center gap-4",
-                 data.quranWard.completed 
-                  ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20" 
+              onClick={async () => {
+                const ref = doc(db, `users/${userId}/prayers`, selectedDate);
+                await setDoc(ref, { quranWard: { ...data.quranWard, completed: !data.quranWard.completed } }, { merge: true });
+              }}
+              className={cn(
+                "flex-1 md:flex-none px-12 py-6 rounded-3xl font-black text-xs tracking-[0.4em] uppercase transition-all flex items-center justify-center gap-4",
+                data.quranWard.completed
+                  ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20"
                   : "bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant hover:text-primary"
-               )}
+              )}
             >
               {data.quranWard.completed ? <CheckCircle2 size={20} /> : <div className="w-5 h-5 rounded-full border-2 border-current opacity-20" />}
               {isArabic ? 'تمييز كمكتمل' : 'MARK_AS_DONE'}
@@ -2663,8 +2663,8 @@ const PrayerView = ({
 
 // --- View: Nutrition ---
 
-const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: { 
-  userId: string, 
+const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
+  userId: string,
   isArabic: boolean,
   selectedDate: string,
   setSelectedDate: (d: string) => void
@@ -2862,7 +2862,7 @@ const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
                 </h3>
               </div>
               {editingId && (
-                <button 
+                <button
                   onClick={() => { setEditingId(null); setForm({ name: '', meal: 'BREAKFAST', calories: '', protein: '', carbs: '', fat: '', amountGrams: '' }); }}
                   className="text-[9px] font-black text-red-400 uppercase tracking-widest hover:underline"
                 >
@@ -2991,8 +2991,8 @@ const NutritionView = ({ userId, isArabic, selectedDate, setSelectedDate }: {
                       className="overflow-hidden space-y-3 pr-4"
                     >
                       {group.entries.map((entry) => (
-                        <div 
-                          key={entry.id} 
+                        <div
+                          key={entry.id}
                           onClick={(e) => {
                             setEditingId(entry.id);
                             setForm({
@@ -3201,9 +3201,9 @@ export default function App() {
             {mode === 'FINANCIAL' && user && <FinancialView userId={user.uid} isArabic={isArabic} selectedDate={selectedDate} isWealthHidden={isWealthHidden} setIsWealthHidden={setIsWealthHidden} />}
             {mode === 'NUTRITION' && user && <NutritionView userId={user.uid} isArabic={isArabic} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />}
             {mode === 'PRAYER' && user && (
-              <PrayerView 
-                userId={user.uid} 
-                isArabic={isArabic} 
+              <PrayerView
+                userId={user.uid}
+                isArabic={isArabic}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
                 isQuranFocusActive={isQuranFocusActive}
@@ -3232,7 +3232,7 @@ export default function App() {
       )}
 
       {isQuranFocusActive && (
-        <QuranFocusOverlay 
+        <QuranFocusOverlay
           isArabic={isArabic}
           quranSecondsLeft={quranSecondsLeft}
           setQuranSecondsLeft={setQuranSecondsLeft}
@@ -3269,7 +3269,7 @@ const playNotificationSound = () => {
       osc.start(startTime);
       osc.stop(startTime + duration);
     };
-    
+
     // Play a friendly electronic chime (E5 -> C6)
     playNote(659.25, audioCtx.currentTime, 0.4);
     playNote(1046.50, audioCtx.currentTime + 0.15, 0.6);
@@ -3305,33 +3305,33 @@ const MedicationReminderOverlay = ({ userId, isArabic, setMode }: { userId: stri
       const currentHH = now.getHours().toString().padStart(2, '0');
       const currentMM = now.getMinutes().toString().padStart(2, '0');
       const timeStr = `${currentHH}:${currentMM}`;
-      
+
       const newReminders: ActiveReminder[] = [];
       const dismissedKey = `dismissed_reminders_${today}`;
       const dismissed = JSON.parse(localStorage.getItem(dismissedKey) || '[]');
 
       MEDICINE_SCHEDULE.forEach(med => {
         med.doses.forEach(dose => {
-           if (dose.time !== '—' && dose.time <= timeStr) {
-              const [dH, dM] = dose.time.split(':').map(Number);
-              const [cH, cM] = timeStr.split(':').map(Number);
-              const diffMins = (cH * 60 + cM) - (dH * 60 + dM);
-              
-              // Only show the reminder during its dedicated hour!
-              if (diffMins >= 0 && diffMins <= 59) {
-                 const checkKey = `${med.id}_${dose.idx}`;
-                 
-                 // Only trigger if it wasn't logged as done and not manually dismissed
-                 if (!checks[checkKey] && !dismissed.includes(checkKey)) {
-                    newReminders.push({
-                      medId: med.id,
-                      doseIdx: dose.idx,
-                      medName: med.nameLine1,
-                      doseTime: dose.displayTime
-                    });
-                 }
+          if (dose.time !== '—' && dose.time <= timeStr) {
+            const [dH, dM] = dose.time.split(':').map(Number);
+            const [cH, cM] = timeStr.split(':').map(Number);
+            const diffMins = (cH * 60 + cM) - (dH * 60 + dM);
+
+            // Only show the reminder during its dedicated hour!
+            if (diffMins >= 0 && diffMins <= 59) {
+              const checkKey = `${med.id}_${dose.idx}`;
+
+              // Only trigger if it wasn't logged as done and not manually dismissed
+              if (!checks[checkKey] && !dismissed.includes(checkKey)) {
+                newReminders.push({
+                  medId: med.id,
+                  doseIdx: dose.idx,
+                  medName: med.nameLine1,
+                  doseTime: dose.displayTime
+                });
               }
-           }
+            }
+          }
         });
       });
 
@@ -3339,40 +3339,40 @@ const MedicationReminderOverlay = ({ userId, isArabic, setMode }: { userId: stri
         let playedSound = false;
         const notifiedNativeKey = `notified_native_${today}`;
         const notifiedLocally: string[] = JSON.parse(sessionStorage.getItem(notifiedNativeKey) || '[]');
-        
+
         newReminders.forEach(r => {
-           const checkKey = `${r.medId}_${r.doseIdx}`;
-           if (!notifiedLocally.includes(checkKey)) {
-              if ('Notification' in window && Notification.permission === 'granted') {
-                 try {
-                   const n = new Notification(isArabic ? 'تذكير العلاج' : 'MED_REMINDER', {
-                      body: isArabic 
-                        ? `حان وقت جرعة الموعد (${r.doseTime}) الخاصة بـ ${r.medName}.`
-                        : `Time for your (${r.doseTime}) dose of ${r.medName}.`,
-                   });
-                   n.onclick = () => {
-                     window.focus();
-                     setMode('MEDICAL');
-                     n.close();
-                   };
-                 } catch (e) {
-                   console.error("Notification API error", e);
-                 }
+          const checkKey = `${r.medId}_${r.doseIdx}`;
+          if (!notifiedLocally.includes(checkKey)) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+              try {
+                const n = new Notification(isArabic ? 'تذكير العلاج' : 'MED_REMINDER', {
+                  body: isArabic
+                    ? `حان وقت جرعة الموعد (${r.doseTime}) الخاصة بـ ${r.medName}.`
+                    : `Time for your (${r.doseTime}) dose of ${r.medName}.`,
+                });
+                n.onclick = () => {
+                  window.focus();
+                  setMode('MEDICAL');
+                  n.close();
+                };
+              } catch (e) {
+                console.error("Notification API error", e);
               }
-              notifiedLocally.push(checkKey);
-              playedSound = true;
-           }
+            }
+            notifiedLocally.push(checkKey);
+            playedSound = true;
+          }
         });
 
         if (playedSound) {
-           sessionStorage.setItem(notifiedNativeKey, JSON.stringify(notifiedLocally));
+          sessionStorage.setItem(notifiedNativeKey, JSON.stringify(notifiedLocally));
         }
 
         setActiveReminders(newReminders);
 
         if (playedSound && now.getTime() - lastSoundPlayedAt > 60000) {
-           playNotificationSound();
-           setLastSoundPlayedAt(now.getTime());
+          playNotificationSound();
+          setLastSoundPlayedAt(now.getTime());
         }
       } else {
         setActiveReminders([]);
@@ -3386,13 +3386,13 @@ const MedicationReminderOverlay = ({ userId, isArabic, setMode }: { userId: stri
   }, [checks, today, lastSoundPlayedAt]);
 
   const dismissReminder = (medId: string, doseIdx: number) => {
-     const checkKey = `${medId}_${doseIdx}`;
-     const dismissedKey = `dismissed_reminders_${today}`;
-     const dismissed = JSON.parse(localStorage.getItem(dismissedKey) || '[]');
-     dismissed.push(checkKey);
-     localStorage.setItem(dismissedKey, JSON.stringify(dismissed));
-     
-     setActiveReminders(prev => prev.filter(r => !(r.medId === medId && r.doseIdx === doseIdx)));
+    const checkKey = `${medId}_${doseIdx}`;
+    const dismissedKey = `dismissed_reminders_${today}`;
+    const dismissed = JSON.parse(localStorage.getItem(dismissedKey) || '[]');
+    dismissed.push(checkKey);
+    localStorage.setItem(dismissedKey, JSON.stringify(dismissed));
+
+    setActiveReminders(prev => prev.filter(r => !(r.medId === medId && r.doseIdx === doseIdx)));
   };
 
   if (activeReminders.length === 0) return null;
@@ -3400,51 +3400,51 @@ const MedicationReminderOverlay = ({ userId, isArabic, setMode }: { userId: stri
   return createPortal(
     <div className="fixed bottom-24 sm:bottom-8 right-4 sm:right-8 z-[100] flex flex-col gap-4 max-w-sm w-[calc(100%-2rem)]">
       <AnimatePresence>
-         {activeReminders.map(r => (
-           <motion.div 
-             key={`${r.medId}_${r.doseIdx}`}
-             initial={{ opacity: 0, y: 50, scale: 0.9 }}
-             animate={{ opacity: 1, y: 0, scale: 1 }}
-             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-             onClick={() => setMode('MEDICAL')}
-             className="bg-surface-container-high/90 backdrop-blur-md rounded-3xl p-5 shadow-2xl border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center gap-4 relative overflow-hidden group cursor-pointer hover:border-primary/40 hover:shadow-primary/10 transition-all"
-             dir={isArabic ? 'rtl' : 'ltr'}
-           >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
-              
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 relative z-10">
-                 <BellRing size={24} className="animate-pulse" />
+        {activeReminders.map(r => (
+          <motion.div
+            key={`${r.medId}_${r.doseIdx}`}
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+            onClick={() => setMode('MEDICAL')}
+            className="bg-surface-container-high/90 backdrop-blur-md rounded-3xl p-5 shadow-2xl border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center gap-4 relative overflow-hidden group cursor-pointer hover:border-primary/40 hover:shadow-primary/10 transition-all"
+            dir={isArabic ? 'rtl' : 'ltr'}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none" />
+
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 relative z-10">
+              <BellRing size={24} className="animate-pulse" />
+            </div>
+
+            <div className="flex-1 relative z-10">
+              <h4 className="text-[14px] font-black text-on-surface tracking-wide mb-1 flex items-center gap-2">
+                {isArabic ? 'تذكير العلاج' : 'MED_REMINDER'}
+                <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
+              </h4>
+              <p className="text-xs text-on-surface-variant/80 font-medium leading-relaxed">
+                {isArabic
+                  ? `حان وقت جرعة الموعد (${r.doseTime}) الخاصة بـ `
+                  : `Time for your (${r.doseTime}) dose of `}
+                <strong className="text-primary font-bold">{r.medName}</strong>.
+              </p>
+              <div className="mt-3 flex gap-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMode('MEDICAL'); }}
+                  className="text-[10px] font-bold tracking-[0.2em] bg-primary text-surface px-4 py-2 rounded-xl uppercase hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                >
+                  {isArabic ? 'اذهب للبروتوكول' : 'TAKE NOW'}
+                </button>
               </div>
-              
-              <div className="flex-1 relative z-10">
-                 <h4 className="text-[14px] font-black text-on-surface tracking-wide mb-1 flex items-center gap-2">
-                   {isArabic ? 'تذكير العلاج' : 'MED_REMINDER'}
-                   <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                 </h4>
-                 <p className="text-xs text-on-surface-variant/80 font-medium leading-relaxed">
-                   {isArabic 
-                    ? `حان وقت جرعة الموعد (${r.doseTime}) الخاصة بـ `
-                    : `Time for your (${r.doseTime}) dose of `}
-                    <strong className="text-primary font-bold">{r.medName}</strong>.
-                 </p>
-                 <div className="mt-3 flex gap-3">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setMode('MEDICAL'); }} 
-                      className="text-[10px] font-bold tracking-[0.2em] bg-primary text-surface px-4 py-2 rounded-xl uppercase hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
-                    >
-                       {isArabic ? 'اذهب للبروتوكول' : 'TAKE NOW'}
-                    </button>
-                 </div>
-              </div>
-              
-              <button 
-                onClick={(e) => { e.stopPropagation(); dismissReminder(r.medId, r.doseIdx); }} 
-                className="absolute top-4 left-4 p-2 text-on-surface-variant/40 hover:text-red-400 hover:bg-red-400/10 rounded-full transition-colors z-10"
-              >
-                <X size={16} />
-              </button>
-           </motion.div>
-         ))}
+            </div>
+
+            <button
+              onClick={(e) => { e.stopPropagation(); dismissReminder(r.medId, r.doseIdx); }}
+              className="absolute top-4 left-4 p-2 text-on-surface-variant/40 hover:text-red-400 hover:bg-red-400/10 rounded-full transition-colors z-10"
+            >
+              <X size={16} />
+            </button>
+          </motion.div>
+        ))}
       </AnimatePresence>
     </div>,
     document.body
